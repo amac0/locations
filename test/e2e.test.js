@@ -72,4 +72,23 @@ describe('e2e: full pipeline with real or fixture data', () => {
     assert.ok(html.includes('upload-zone'), 'Should have upload zone');
     assert.ok(html.includes('af-header'), 'Should have AF header');
   });
+
+  it('index.html has export buttons for SVG and PNG', () => {
+    const html = readFileSync(
+      new URL('../index.html', import.meta.url), 'utf-8'
+    );
+    assert.ok(html.includes('export-svg-btn'), 'Should have SVG export button');
+    assert.ok(html.includes('export-png-btn'), 'Should have PNG export button');
+    assert.ok(html.includes('exportSvg'), 'Should have SVG export function');
+    assert.ok(html.includes('exportPng'), 'Should have PNG export function');
+  });
+
+  it('index.html has zoom and pan functionality', () => {
+    const html = readFileSync(
+      new URL('../index.html', import.meta.url), 'utf-8'
+    );
+    assert.ok(html.includes('d3.zoom'), 'Should use d3.zoom');
+    assert.ok(html.includes('reset-zoom-btn'), 'Should have reset zoom button');
+    assert.ok(html.includes('zoomIdentity'), 'Should reset to zoomIdentity');
+  });
 });
