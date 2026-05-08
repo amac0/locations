@@ -191,6 +191,37 @@
             display: inline-block;
         }
 
+        /* ==================== EXPORT BAR ==================== */
+        .export-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--app-border);
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            transition: all 0.15s;
+            font-family: inherit;
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--app-text-muted);
+            border: 1px solid var(--app-border);
+        }
+        .btn-secondary:hover {
+            background: var(--app-primary-light);
+            color: var(--app-text);
+        }
+
         /* ==================== TOOLTIP ==================== */
         .tooltip {
             position: fixed;
@@ -280,6 +311,11 @@
                     <span>Long ago</span>
                     <span class="legend-swatch"></span>
                     <span>Not visited</span>
+                </div>
+                <div class="export-bar">
+                    <button id="export-svg-btn" class="btn btn-secondary">Download SVG</button>
+                    <button id="export-png-btn" class="btn btn-secondary">Download PNG</button>
+                    <button id="reset-zoom-btn" class="btn btn-secondary">Reset Zoom</button>
                 </div>
             </div>
         </div>
@@ -415,6 +451,8 @@
         .attr('viewBox', `0 0 ${width} ${height}`)
         .attr('preserveAspectRatio', 'xMidYMid meet');
 
+      const g = svg.append('g');
+
       const projection = d3.geoNaturalEarth1()
         .scale(153)
         .translate([width / 2, height / 2]);
@@ -439,7 +477,7 @@
 
       /* COUNTRY_NAMES imported from locations.js */
 
-      svg.selectAll('path')
+      g.selectAll('path')
         .data(countries.features)
         .join('path')
         .attr('d', path)
@@ -475,6 +513,19 @@
         .on('mouseleave', () => {
           document.getElementById('tooltip').style.display = 'none';
         });
+
+      /* Zoom and pan behavior */
+      const zoom = d3.zoom()
+        .scaleExtent([1, 8])
+        .on('zoom', (event) => {
+          g.attr('transform', event.transform);
+        });
+
+      svg.call(zoom);
+
+      document.getElementById('reset-zoom-btn').addEventListener('click', () => {
+        svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+      });
     }
 
     /* ==================== LEGEND ==================== */
@@ -488,6 +539,59 @@
       ctx.beginPath();
       ctx.roundRect(0, 0, 120, 12, 3);
       ctx.fill();
+    }
+
+    /* ==================== EXPORT ==================== */
+    document.getElementById('export-svg-btn').addEventListener('click', exportSvg);
+    document.getElementById('export-png-btn').addEventListener('click', exportPng);
+
+    function exportSvg() {
+      const svgEl = document.querySelector('#map svg');
+      if (!svgEl) return;
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      /* Inline the country styles so the SVG is self-contained */
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = '.country { stroke: #fff; stroke-width: 0.5; }';
+      clone.insertBefore(style, clone.firstChild);
+      const blob = new Blob([clone.outerHTML], { type: 'image/svg+xml' });
+      downloadBlob(blob, 'country-visit-map.svg');
+    }
+
+    function exportPng() {
+      const svgEl = document.querySelector('#map svg');
+      if (!svgEl) return;
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = '.country { stroke: #fff; stroke-width: 0.5; }';
+      clone.insertBefore(style, clone.firstChild);
+      const svgData = new XMLSerializer().serializeToString(clone);
+      const canvas = document.createElement('canvas');
+      canvas.width = 1920;
+      canvas.height = 1000;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          downloadBlob(blob, 'country-visit-map.png');
+        }, 'image/png');
+      };
+      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
 
     </script>
