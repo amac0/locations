@@ -73,14 +73,16 @@ describe('e2e: full pipeline with real or fixture data', () => {
     assert.ok(html.includes('af-header'), 'Should have AF header');
   });
 
-  it('index.html has export buttons for SVG and PNG', () => {
+  it('index.html has export buttons for SVG, PNG, and JS widget', () => {
     const html = readFileSync(
       new URL('../index.html', import.meta.url), 'utf-8'
     );
     assert.ok(html.includes('export-svg-btn'), 'Should have SVG export button');
     assert.ok(html.includes('export-png-btn'), 'Should have PNG export button');
+    assert.ok(html.includes('export-js-btn'), 'Should have JS export button');
     assert.ok(html.includes('exportSvg'), 'Should have SVG export function');
     assert.ok(html.includes('exportPng'), 'Should have PNG export function');
+    assert.ok(html.includes('exportJs'), 'Should have JS export function');
   });
 
   it('index.html has zoom and pan functionality', () => {
