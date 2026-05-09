@@ -17,11 +17,11 @@
         :root {
             --app-bg: #f8f9fb;
             --app-text: #1a1a2e;
-            --app-primary: #6366f1;
+            --app-primary: #6e1423;
             --app-card-bg: #ffffff;
             --app-text-muted: #6b7280;
-            --app-primary-hover: #4f46e5;
-            --app-primary-light: #eef2ff;
+            --app-primary-hover: #501018;
+            --app-primary-light: #fdf2f4;
             --app-border: #e5e7eb;
             --app-radius: 12px;
             --app-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
@@ -752,12 +752,12 @@
         .attr('fill', d => {
           const name = getName(d);
           if (!name || !activeData.has(name)) return '#e5e7eb';
-          if (colorMode === 'binary') return '#6366f1';
+          if (colorMode === 'binary') return '#6e1423';
           const entry = activeData.get(name);
           const years =
             (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
           const opacity = 1 - (years / maxYears) * 0.8;
-          return d3.color('#6366f1').copy({ opacity });
+          return d3.color('#6e1423').copy({ opacity });
         })
         .on('mousemove', (event, d) => {
           const name = getName(d);
@@ -818,8 +818,8 @@
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, 120, 12);
         const gradient = ctx.createLinearGradient(0, 0, 120, 0);
-        gradient.addColorStop(0, 'rgba(99, 102, 241, 1)');
-        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
+        gradient.addColorStop(0, 'rgba(110, 20, 35, 1)');
+        gradient.addColorStop(1, 'rgba(110, 20, 35, 0.2)');
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.roundRect(0, 0, 120, 12, 3);
@@ -970,7 +970,7 @@
           var entry = VISIT_DATA[name];
           var years = (now - new Date(entry.lastVisit)) / (365.25 * 24 * 60 * 60 * 1000);
           var opacity = 1 - (years / maxYears) * 0.8;
-          return d3.color('#6366f1').copy({ opacity: opacity });
+          return d3.color('#6e1423').copy({ opacity: opacity });
         })
         .attr('stroke', '#fff')
         .attr('stroke-width', 0.5);
