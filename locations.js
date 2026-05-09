@@ -415,8 +415,10 @@ const US_STATE_ABBREVS = {
   'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah',
   'VT': 'Vermont', 'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia',
   'WI': 'Wisconsin', 'WY': 'Wyoming', 'DC': 'District of Columbia',
-  'PR': 'Puerto Rico', 'GU': 'Guam', 'VI': 'Virgin Islands',
-  'AS': 'American Samoa', 'MP': 'Northern Mariana Islands',
+  'PR': 'Puerto Rico', 'GU': 'Guam',
+  'VI': 'United States Virgin Islands',
+  'AS': 'American Samoa',
+  'MP': 'Commonwealth of the Northern Mariana Islands',
 };
 
 /* Canadian province abbreviation -> full name */
@@ -439,6 +441,13 @@ const STATE_ALIASES = {
   'pei': 'Prince Edward Island',
   'nfld': 'Newfoundland and Labrador',
   'newfoundland': 'Newfoundland and Labrador',
+  'virgin islands': 'United States Virgin Islands',
+  'us virgin islands': 'United States Virgin Islands',
+  'u.s. virgin islands': 'United States Virgin Islands',
+  'usvi': 'United States Virgin Islands',
+  'northern mariana islands': 'Commonwealth of the Northern Mariana Islands',
+  'northern marianas': 'Commonwealth of the Northern Mariana Islands',
+  'cnmi': 'Commonwealth of the Northern Mariana Islands',
 };
 
 /**

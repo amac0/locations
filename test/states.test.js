@@ -56,6 +56,30 @@ describe('extractStateFromField', () => {
     assert.strictEqual(extractStateFromField('Quebec'), 'Quebec');
   });
 
+  it('handles territories with long canonical names', () => {
+    assert.strictEqual(
+      extractStateFromField('VI'),
+      'United States Virgin Islands'
+    );
+    assert.strictEqual(
+      extractStateFromField('Virgin Islands'),
+      'United States Virgin Islands'
+    );
+    assert.strictEqual(
+      extractStateFromField('MP'),
+      'Commonwealth of the Northern Mariana Islands'
+    );
+    assert.strictEqual(
+      extractStateFromField('Northern Mariana Islands'),
+      'Commonwealth of the Northern Mariana Islands'
+    );
+    assert.strictEqual(extractStateFromField('PR'), 'Puerto Rico');
+    assert.strictEqual(
+      extractStateFromField('Puerto Rico'),
+      'Puerto Rico'
+    );
+  });
+
   it('handles "Washington DC" and variants', () => {
     assert.strictEqual(
       extractStateFromField('Washington DC'),
