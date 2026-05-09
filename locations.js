@@ -562,8 +562,15 @@ export function parseCsvToStateMap(csv) {
     h => h === 'state' || h === 'state/zip' || h === 'province'
       || h === 'state_province' || h === 'region'
   );
+  const countryIdx = header.findIndex(
+    h => h === 'country' || h === 'country_name'
+  );
 
-  if (dateIdx === -1 || stateIdx === -1) {
+  if (dateIdx === -1) {
+    return { stateMap, errors };
+  }
+  /* If neither state nor country column exists, nothing to extract */
+  if (stateIdx === -1 && countryIdx === -1) {
     return { stateMap, errors };
   }
 
@@ -573,14 +580,18 @@ export function parseCsvToStateMap(csv) {
 
     const cols = row.split(',').map(c => c.trim());
     const dateStr = cols[dateIdx];
-    const stateStr = cols[stateIdx];
-
-    if (!stateStr) continue;
+    const stateStr = stateIdx !== -1 ? cols[stateIdx] : '';
+    const countryStr = countryIdx !== -1 ? cols[countryIdx] : '';
 
     const date = parseDateStr(dateStr);
     if (!date) continue;
 
-    const state = extractStateFromField(stateStr);
+    /* Try state/zip column first, then fall back to country column
+       (handles territories like Puerto Rico listed as a country) */
+    let state = stateStr ? extractStateFromField(stateStr) : null;
+    if (!state && countryStr) {
+      state = extractStateFromField(countryStr);
+    }
     if (!state) continue;
 
     if (stateMap.has(state)) {

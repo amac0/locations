@@ -180,6 +180,30 @@ describe('parseCsvToStateMap', () => {
     assert.strictEqual(errors.length, 0);
   });
 
+  it('finds state from Country column for territories', () => {
+    const csv = 'Date,Address,City,State/Zip,Country\n'
+      + '2015-09-11T23:03:00Z,,Carolina,979,Puerto Rico\n';
+    const { stateMap } = parseCsvToStateMap(csv);
+    assert.strictEqual(stateMap.size, 1);
+    assert.ok(stateMap.has('Puerto Rico'));
+  });
+
+  it('prefers State/Zip over Country column', () => {
+    const csv = 'Date,City,State/Zip,Country\n'
+      + '2017-01-01T00:00:00Z,DC,DC 20008,USA\n';
+    const { stateMap } = parseCsvToStateMap(csv);
+    assert.strictEqual(stateMap.size, 1);
+    assert.ok(stateMap.has('District of Columbia'));
+  });
+
+  it('works with only Country column (no State column)', () => {
+    const csv = 'Date,Country\n'
+      + '2015-09-11T23:03:00Z,Puerto Rico\n';
+    const { stateMap } = parseCsvToStateMap(csv);
+    assert.strictEqual(stateMap.size, 1);
+    assert.ok(stateMap.has('Puerto Rico'));
+  });
+
   it('uses State column if present', () => {
     const csv = 'Date,State,Country\n'
       + '2017-01-01T00:00:00Z,New York,USA\n';
