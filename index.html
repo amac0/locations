@@ -711,13 +711,14 @@
         ).features;
         getName = d => COUNTRY_NAMES[d.id];
       } else {
-        /* US + Canada projection: Albers USA doesn't include Canada.
-           Use a conic projection centered on North America. */
+        /* US + Canada + territories projection.
+           Use a conic projection covering from Puerto Rico (~18°N)
+           to northern Canada (~70°N). */
         projection = d3.geoConicConformal()
           .rotate([95, 0])
-          .center([0, 49])
-          .parallels([29.5, 45.5])
-          .scale(500)
+          .center([0, 45])
+          .parallels([20, 60])
+          .scale(420)
           .translate([width / 2, height / 2]);
         const usFeatures = topojson.feature(
           usTopo, usTopo.objects.states
