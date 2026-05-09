@@ -221,6 +221,15 @@
             background: var(--app-primary-light);
             color: var(--app-text);
         }
+        .btn-reset {
+            margin-top: 1rem;
+            color: var(--app-primary);
+            background: transparent;
+            border: 1px solid var(--app-border);
+        }
+        .btn-reset:hover {
+            background: var(--app-primary-light);
+        }
 
         /* ==================== IMPORT ERRORS ==================== */
         .import-errors {
@@ -319,6 +328,7 @@
                 <input type="file" id="file-input" accept=".json,.csv" multiple>
             </div>
             <div id="processing-indicator" class="processing hidden">Processing location data...</div>
+            <button id="reset-data-btn" class="btn btn-reset hidden">Reset All Data</button>
         </div>
 
         <!-- Results Section (hidden until data processed) -->
@@ -338,7 +348,6 @@
                     <button id="export-png-btn" class="btn btn-secondary">Download PNG</button>
                     <button id="export-js-btn" class="btn btn-secondary">Download JS Widget</button>
                     <button id="reset-zoom-btn" class="btn btn-secondary">Reset Zoom</button>
-                    <button id="reset-data-btn" class="btn btn-secondary" style="margin-left:auto;color:var(--app-primary)">Reset All Data</button>
                 </div>
                 <div id="import-errors" class="import-errors hidden"></div>
             </div>
@@ -407,15 +416,16 @@
         return;
       }
       el.classList.remove('hidden');
+      el.innerHTML = '';
+
+      const details = document.createElement('details');
+      const summary = document.createElement('summary');
+      summary.textContent = `${errors.length} import `
+        + `warning${errors.length > 1 ? 's' : ''}`;
+      details.appendChild(summary);
+
+      const ul = document.createElement('ul');
       const limited = errors.slice(0, 20);
-      const more = errors.length > 20
-        ? `<li>...and ${errors.length - 20} more</li>` : '';
-      el.innerHTML = `<details><summary>${errors.length} import `
-        + `warning${errors.length > 1 ? 's' : ''}</summary>`
-        + `<ul>${limited.map(e => `<li>${document.createElement('span').textContent = e, e}</li>`).join('')}${more}</ul></details>`;
-      /* Re-render safely with textContent */
-      const ul = el.querySelector('ul');
-      ul.innerHTML = '';
       for (const err of limited) {
         const li = document.createElement('li');
         li.textContent = err;
@@ -426,6 +436,8 @@
         li.textContent = `...and ${errors.length - 20} more`;
         ul.appendChild(li);
       }
+      details.appendChild(ul);
+      el.appendChild(details);
     }
 
     async function processFiles(files) {
@@ -497,6 +509,9 @@
         /* Merge new data from this upload */
         const newData = mergeCountryMaps(timelineMap, csvMap);
 
+        if (newData.size === 0 && countryData.size > 0) {
+          importErrors.push('No new country data found in this upload.');
+        }
         if (newData.size === 0 && countryData.size === 0) {
           throw new Error(
             'No country data found in the uploaded file(s). '
@@ -509,13 +524,14 @@
         countryData = mergeCountryMaps(countryData, newData);
         allTimelineCoords = allTimelineCoords.concat(allCoords);
 
-        /* Show upload zone again with "add more" text */
-        uploadZoneEl.classList.remove('hidden');
+        /* Restore UI state before rendering */
         processingEl.classList.add('hidden');
+        uploadZoneEl.classList.remove('hidden');
         uploadZone.querySelector('h3').textContent =
           'Drop another file to add more data';
         uploadZone.querySelector('p').textContent =
           'Upload a Timeline.json or CSV to combine with existing data';
+        document.getElementById('reset-data-btn').classList.remove('hidden');
 
         renderResults(allTimelineCoords);
         showImportErrors(importErrors);
@@ -684,12 +700,18 @@
       allTimelineCoords = [];
       document.getElementById('results-section').classList.add('hidden');
       document.getElementById('import-errors').classList.add('hidden');
-      document.getElementById('map').innerHTML = '';
+      /* Clean up D3 SVG and zoom listeners */
+      const mapEl = document.getElementById('map');
+      const svg = mapEl.querySelector('svg');
+      if (svg) d3.select(svg).on('.zoom', null);
+      mapEl.innerHTML = '';
       flashArea.innerHTML = '';
+      fileInput.value = '';
       uploadZone.querySelector('h3').textContent =
         'Drop your Timeline.json or CSV file here';
       uploadZone.querySelector('p').textContent =
         'Or click to select files (you can upload both to combine them)';
+      document.getElementById('reset-data-btn').classList.add('hidden');
     }
 
     function exportSvg() {

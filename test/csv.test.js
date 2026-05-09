@@ -42,6 +42,30 @@ describe('parseDateStr', () => {
     assert.ok(d instanceof Date);
     assert.strictEqual(d.getUTCFullYear(), 2020);
   });
+
+  it('parses m/d/yyyy format', () => {
+    const d = parseDateStr('3/15/2020');
+    assert.ok(d instanceof Date);
+    assert.strictEqual(d.getUTCFullYear(), 2020);
+    assert.strictEqual(d.getUTCMonth(), 2); // March = 2
+    assert.strictEqual(d.getUTCDate(), 15);
+  });
+
+  it('parses mm/dd/yyyy format', () => {
+    const d = parseDateStr('12/25/2019');
+    assert.ok(d instanceof Date);
+    assert.strictEqual(d.getUTCFullYear(), 2019);
+    assert.strictEqual(d.getUTCMonth(), 11);
+    assert.strictEqual(d.getUTCDate(), 25);
+  });
+
+  it('returns null for invalid month 0/yyyy', () => {
+    assert.strictEqual(parseDateStr('0/2020'), null);
+  });
+
+  it('returns null for invalid month 13/yyyy', () => {
+    assert.strictEqual(parseDateStr('13/2020'), null);
+  });
 });
 
 describe('normalizeCountryName', () => {

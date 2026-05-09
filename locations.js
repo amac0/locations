@@ -204,6 +204,19 @@ export function parseDateStr(str) {
     if (month >= 1 && month <= 12) {
       return new Date(Date.UTC(year, month - 1, 1));
     }
+    return null;
+  }
+
+  /* Try m/d/yyyy or mm/dd/yyyy format */
+  const mdyMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdyMatch) {
+    const month = parseInt(mdyMatch[1], 10);
+    const day = parseInt(mdyMatch[2], 10);
+    const year = parseInt(mdyMatch[3], 10);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return new Date(Date.UTC(year, month - 1, day));
+    }
+    return null;
   }
 
   /* Fall back to standard Date parsing */
