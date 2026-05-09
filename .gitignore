@@ -1,0 +1,20 @@
+# Data files - do not commit user location data
+Timeline.json
+takeout-*.zip
+
+# Dependencies
+node_modules/
+
+# Reference files
+Attention Feed_ Booklist.html
+Attention Feed_ Booklist_files/
+
+# Superpowers
+.superpowers/
+
+# OS
+.DS_Store
+
+# Editor
+*.swp
+*.swo

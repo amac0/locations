@@ -1,0 +1,88 @@
+{
+  "semanticSegments": [
+    {
+      "startTime": "2025-09-01T10:00:00.000+01:00",
+      "endTime": "2025-09-01T12:00:00.000+01:00",
+      "startTimeTimezoneUtcOffsetMinutes": 60,
+      "endTimeTimezoneUtcOffsetMinutes": 60,
+      "visit": {
+        "hierarchyLevel": 0,
+        "probability": 0.9,
+        "topCandidate": {
+          "placeId": "ChIJdd4hrwug2EcRmSrV3Vo6llI",
+          "semanticType": "UNKNOWN",
+          "probability": 0.9,
+          "placeLocation": {
+            "latLng": "51.5074°, -0.1278°"
+          }
+        }
+      }
+    },
+    {
+      "startTime": "2025-09-05T14:00:00.000+02:00",
+      "endTime": "2025-09-05T16:00:00.000+02:00",
+      "startTimeTimezoneUtcOffsetMinutes": 120,
+      "endTimeTimezoneUtcOffsetMinutes": 120,
+      "visit": {
+        "hierarchyLevel": 0,
+        "probability": 0.85,
+        "topCandidate": {
+          "placeId": "ChIJD7fiBh9u5kcRYJSMaMOCCwQ",
+          "semanticType": "UNKNOWN",
+          "probability": 0.85,
+          "placeLocation": {
+            "latLng": "48.8566°, 2.3522°"
+          }
+        }
+      }
+    },
+    {
+      "startTime": "2025-10-10T09:00:00.000-04:00",
+      "endTime": "2025-10-10T09:30:00.000-04:00",
+      "startTimeTimezoneUtcOffsetMinutes": -240,
+      "endTimeTimezoneUtcOffsetMinutes": -240,
+      "activity": {
+        "start": {
+          "latLng": "40.7128°, -74.0060°"
+        },
+        "end": {
+          "latLng": "40.7580°, -73.9855°"
+        },
+        "distanceMeters": 5500,
+        "probability": 0.95,
+        "topCandidate": {
+          "type": "IN_SUBWAY",
+          "probability": 0.8
+        }
+      }
+    },
+    {
+      "startTime": "2025-08-29T11:00:00.000+01:00",
+      "endTime": "2025-08-29T13:00:00.000+01:00",
+      "timelinePath": [
+        {
+          "point": "51.5291535°, -0.179714°",
+          "time": "2025-08-29T11:42:00.000+01:00"
+        }
+      ]
+    },
+    {
+      "startTime": "2025-12-01T10:00:00.000+01:00",
+      "endTime": "2025-12-01T12:00:00.000+01:00",
+      "startTimeTimezoneUtcOffsetMinutes": 60,
+      "endTimeTimezoneUtcOffsetMinutes": 60,
+      "visit": {
+        "hierarchyLevel": 0,
+        "probability": 0.9,
+        "topCandidate": {
+          "placeId": "ChIJdd4hrwug2EcRmSrV3Vo6llI",
+          "semanticType": "UNKNOWN",
+          "probability": 0.9,
+          "placeLocation": {
+            "latLng": "51.5074°, -0.1278°"
+          }
+        }
+      }
+    }
+  ]
+}

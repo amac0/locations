@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attention Feed: Locations</title>
+    <link rel="icon" href="https://attentionfeed.com/shared/favicon.ico">
+    <link rel="stylesheet" href="shared.css">
+    <script src="shared.js" defer></script>
+
+    <!-- D3.js and TopoJSON from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+
+    <style>
+        /* ==================== APP-SPECIFIC VARIABLES ==================== */
+        :root {
+            --app-bg: #f8f9fb;
+            --app-text: #1a1a2e;
+            --app-primary: #6366f1;
+            --app-card-bg: #ffffff;
+            --app-text-muted: #6b7280;
+            --app-primary-hover: #4f46e5;
+            --app-primary-light: #eef2ff;
+            --app-border: #e5e7eb;
+            --app-radius: 12px;
+            --app-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        /* ==================== LAYOUT ==================== */
+        .page {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.375rem;
+        }
+        .page-subtitle {
+            color: var(--app-text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 2rem;
+        }
+
+        /* ==================== CARDS ==================== */
+        .card {
+            background: var(--app-card-bg);
+            border-radius: var(--app-radius);
+            box-shadow: var(--app-shadow);
+            padding: 2rem;
+        }
+
+        /* ==================== UPLOAD ZONE ==================== */
+        .upload-zone {
+            border: 2px dashed var(--app-border);
+            border-radius: var(--app-radius);
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--app-primary);
+            background: var(--app-primary-light);
+        }
+        .upload-zone h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: var(--app-text);
+        }
+        .upload-zone p {
+            color: var(--app-text-muted);
+            font-size: 0.875rem;
+        }
+        .upload-zone input[type="file"] {
+            display: none;
+        }
+
+        /* ==================== HELP PANEL ==================== */
+        .help-panel {
+            margin-bottom: 1.5rem;
+            background: var(--app-card-bg);
+            border-radius: var(--app-radius);
+            box-shadow: var(--app-shadow);
+            overflow: hidden;
+        }
+        .help-panel summary {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--app-primary);
+            cursor: pointer;
+            list-style: none;
+        }
+        .help-panel summary::-webkit-details-marker { display: none; }
+        .help-panel summary::before {
+            content: '\25B6';
+            display: inline-block;
+            margin-right: 0.5rem;
+            font-size: 0.625rem;
+            transition: transform 0.15s;
+        }
+        .help-panel[open] summary::before {
+            transform: rotate(90deg);
+        }
+        .help-content {
+            padding: 0 1.25rem 1rem;
+            font-size: 0.8125rem;
+            color: var(--app-text-muted);
+            line-height: 1.7;
+        }
+        .help-content ol {
+            padding-left: 1.25rem;
+        }
+        .help-content li {
+            margin-bottom: 0.375rem;
+        }
+        .help-content strong {
+            color: var(--app-text);
+        }
+
+        /* ==================== FLASH MESSAGES ==================== */
+        .flash {
+            padding: 0.875rem 1.25rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+        .flash-error {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        /* ==================== STATS ==================== */
+        .stats-line {
+            font-size: 0.875rem;
+            color: var(--app-text-muted);
+            margin-bottom: 1rem;
+        }
+        .stats-line strong {
+            color: var(--app-text);
+        }
+
+        /* ==================== MAP ==================== */
+        .map-container {
+            background: var(--app-card-bg);
+            border-radius: var(--app-radius);
+            box-shadow: var(--app-shadow);
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .map-container svg {
+            width: 100%;
+            height: auto;
+        }
+        .map-container .country {
+            stroke: #fff;
+            stroke-width: 0.5;
+            transition: opacity 0.15s;
+        }
+        .map-container .country:hover {
+            stroke-width: 1.5;
+            stroke: #333;
+        }
+
+        /* ==================== LEGEND ==================== */
+        .legend {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: var(--app-text-muted);
+        }
+        .legend-gradient {
+            width: 120px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        .legend-swatch {
+            width: 24px;
+            height: 12px;
+            border-radius: 3px;
+            background: #e5e7eb;
+            display: inline-block;
+        }
+
+        /* ==================== EXPORT BAR ==================== */
+        .export-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--app-border);
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            transition: all 0.15s;
+            font-family: inherit;
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--app-text-muted);
+            border: 1px solid var(--app-border);
+        }
+        .btn-secondary:hover {
+            background: var(--app-primary-light);
+            color: var(--app-text);
+        }
+
+        /* ==================== TOOLTIP ==================== */
+        .tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 240px;
+            line-height: 1.4;
+            display: none;
+        }
+        .tooltip .country-name {
+            font-weight: 600;
+        }
+        .tooltip .visit-info {
+            font-size: 0.75rem;
+            opacity: 0.85;
+        }
+
+        /* ==================== PROCESSING INDICATOR ==================== */
+        .processing {
+            text-align: center;
+            padding: 2rem;
+            color: var(--app-text-muted);
+            font-size: 0.875rem;
+        }
+
+        /* ==================== HIDDEN ==================== */
+        .hidden {
+            display: none !important;
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 768px) {
+            .page {
+                padding: 0 0.75rem;
+                margin: 1rem auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <af-header project-name="Locations" project-url="."></af-header>
+
+    <main class="page">
+        <h1 class="page-title">Country Visit Map</h1>
+        <p class="page-subtitle">Upload your Google Takeout Timeline.json to see a map of countries you've visited. All processing happens in your browser — your data is not uploaded anywhere. NB Coded by AI with Claude Code.</p>
+
+        <details class="help-panel">
+            <summary>How to use this tool</summary>
+            <div class="help-content">
+                <ol>
+                    <li><strong>Get your data:</strong> Open Google Maps on your phone, go to Settings > Personal content > Export Timeline data. Download the resulting file.</li>
+                    <li><strong>Upload:</strong> Drop the Timeline.json file below or click to select it.</li>
+                    <li><strong>View:</strong> A world map appears showing every country you've visited, colored by how recently you were there.</li>
+                </ol>
+            </div>
+        </details>
+
+        <div id="flash-area"></div>
+
+        <!-- Upload Section -->
+        <div id="upload-section" class="card">
+            <div id="upload-zone" class="upload-zone">
+                <h3>Drop your Timeline.json file here</h3>
+                <p>Or click to select a file</p>
+                <input type="file" id="file-input" accept=".json">
+            </div>
+        </div>
+
+        <!-- Processing indicator -->
+        <div id="processing-section" class="card hidden">
+            <div class="processing">Processing location data...</div>
+        </div>
+
+        <!-- Results Section (hidden until data processed) -->
+        <div id="results-section" class="hidden">
+            <div id="stats-line" class="stats-line"></div>
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="legend">
+                    <span>Recent</span>
+                    <canvas id="legend-gradient" class="legend-gradient" width="120" height="12"></canvas>
+                    <span>Long ago</span>
+                    <span class="legend-swatch"></span>
+                    <span>Not visited</span>
+                </div>
+                <div class="export-bar">
+                    <button id="export-svg-btn" class="btn btn-secondary">Download SVG</button>
+                    <button id="export-png-btn" class="btn btn-secondary">Download PNG</button>
+                    <button id="export-js-btn" class="btn btn-secondary">Download JS Widget</button>
+                    <button id="reset-zoom-btn" class="btn btn-secondary">Reset Zoom</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip">
+        <div class="country-name"></div>
+        <div class="visit-info"></div>
+    </div>
+
+    <af-footer></af-footer>
+
+    <script type="module">
+    // ABOUTME: Main application script for the country visit map.
+    // ABOUTME: Handles file upload, data processing, and D3 map rendering.
+
+    import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES } from './locations.js';
+
+    /* ==================== STATE ==================== */
+    let countryData = null; // Map<string, {firstVisit, lastVisit, visitCount}>
+    let worldTopo = null;
+
+    /* ==================== UPLOAD HANDLING ==================== */
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+    const flashArea = document.getElementById('flash-area');
+
+    uploadZone.addEventListener('click', () => fileInput.click());
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) processFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) processFile(file);
+    });
+
+    function showError(msg) {
+      flashArea.innerHTML = `<div class="flash flash-error">${msg}</div>`;
+    }
+
+    async function processFile(file) {
+      flashArea.innerHTML = '';
+
+      if (!file.name.endsWith('.json')) {
+        showError('Please upload a .json file (Timeline.json from Google Takeout).');
+        return;
+      }
+
+      document.getElementById('upload-section').classList.add('hidden');
+      document.getElementById('processing-section').classList.remove('hidden');
+
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        if (!data.semanticSegments) {
+          throw new Error(
+            'This does not look like a Timeline.json file '
+            + '(missing semanticSegments).'
+          );
+        }
+
+        if (!worldTopo) {
+          const resp = await fetch('world-110m.json');
+          worldTopo = await resp.json();
+        }
+
+        const coords = extractCoordinates(data);
+        if (coords.length === 0) {
+          throw new Error(
+            'No location data found in this file. '
+            + 'Make sure you are uploading Timeline.json '
+            + 'from Google Takeout.'
+          );
+        }
+
+        countryData = buildCountryMap(coords, worldTopo);
+        renderResults(coords);
+      } catch (err) {
+        document.getElementById('processing-section').classList.add('hidden');
+        document.getElementById('upload-section').classList.remove('hidden');
+        showError(err.message);
+      }
+    }
+
+    /* ==================== RESULTS RENDERING ==================== */
+    function renderResults(coords) {
+      document.getElementById('processing-section').classList.add('hidden');
+      document.getElementById('results-section').classList.remove('hidden');
+
+      // Stats
+      const times = coords
+        .map(c => new Date(c.time).getTime())
+        .filter(t => !isNaN(t));
+      const minDate = new Date(Math.min(...times));
+      const maxDate = new Date(Math.max(...times));
+      const fmtOpts = { year: 'numeric', month: 'short' };
+      const statsLine = document.getElementById('stats-line');
+      statsLine.innerHTML =
+        `<strong>${countryData.size}</strong> countries visited`
+        + ` &middot; ${minDate.toLocaleDateString('en-US', fmtOpts)}`
+        + ` &ndash; ${maxDate.toLocaleDateString('en-US', fmtOpts)}`;
+
+      renderMap();
+      renderLegend();
+    }
+
+    /* ==================== MAP RENDERING ==================== */
+    function renderMap() {
+      const mapEl = document.getElementById('map');
+      mapEl.innerHTML = '';
+
+      const width = 960;
+      const height = 500;
+
+      const svg = d3.select(mapEl)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet');
+
+      const g = svg.append('g');
+
+      const projection = d3.geoNaturalEarth1()
+        .scale(153)
+        .translate([width / 2, height / 2]);
+
+      const path = d3.geoPath().projection(projection);
+
+      const countries = topojson.feature(
+        worldTopo, worldTopo.objects.countries
+      );
+
+      /* Color scale: years since last visit -> opacity.
+         0 years (this year) = full opacity, oldest = 0.2 opacity */
+      const now = new Date();
+      let maxYears = 0;
+      for (const entry of countryData.values()) {
+        const years =
+          (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
+        if (years > maxYears) maxYears = years;
+      }
+      /* Ensure at least 1 year range to avoid division by zero */
+      if (maxYears < 1) maxYears = 1;
+
+      /* COUNTRY_NAMES imported from locations.js */
+
+      g.selectAll('path')
+        .data(countries.features)
+        .join('path')
+        .attr('d', path)
+        .attr('class', 'country')
+        .attr('fill', d => {
+          const name = COUNTRY_NAMES[d.id];
+          if (!name || !countryData.has(name)) return '#e5e7eb';
+          const entry = countryData.get(name);
+          const years =
+            (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
+          const opacity = 1 - (years / maxYears) * 0.8;
+          return d3.color('#6366f1').copy({ opacity });
+        })
+        .on('mousemove', (event, d) => {
+          const name = COUNTRY_NAMES[d.id];
+          const tooltip = document.getElementById('tooltip');
+          if (name && countryData.has(name)) {
+            const entry = countryData.get(name);
+            const fmtOpts = { year: 'numeric', month: 'short' };
+            tooltip.querySelector('.country-name').textContent = name;
+            tooltip.querySelector('.visit-info').textContent =
+              `Last visit: ${entry.lastVisit.toLocaleDateString('en-US', fmtOpts)}`
+              + ` · ${entry.visitCount} visit${entry.visitCount > 1 ? 's' : ''}`;
+            tooltip.style.display = 'block';
+          } else if (name) {
+            tooltip.querySelector('.country-name').textContent = name;
+            tooltip.querySelector('.visit-info').textContent = 'Not visited';
+            tooltip.style.display = 'block';
+          }
+          tooltip.style.left = (event.clientX + 12) + 'px';
+          tooltip.style.top = (event.clientY - 10) + 'px';
+        })
+        .on('mouseleave', () => {
+          document.getElementById('tooltip').style.display = 'none';
+        });
+
+      /* Zoom and pan behavior */
+      const zoom = d3.zoom()
+        .scaleExtent([1, 8])
+        .on('zoom', (event) => {
+          g.attr('transform', event.transform);
+        });
+
+      svg.call(zoom);
+
+      document.getElementById('reset-zoom-btn').addEventListener('click', () => {
+        svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+      });
+    }
+
+    /* ==================== LEGEND ==================== */
+    function renderLegend() {
+      const canvas = document.getElementById('legend-gradient');
+      const ctx = canvas.getContext('2d');
+      const gradient = ctx.createLinearGradient(0, 0, 120, 0);
+      gradient.addColorStop(0, 'rgba(99, 102, 241, 1)');
+      gradient.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, 120, 12, 3);
+      ctx.fill();
+    }
+
+    /* ==================== EXPORT ==================== */
+    document.getElementById('export-svg-btn').addEventListener('click', exportSvg);
+    document.getElementById('export-png-btn').addEventListener('click', exportPng);
+    document.getElementById('export-js-btn').addEventListener('click', exportJs);
+
+    function exportSvg() {
+      const svgEl = document.querySelector('#map svg');
+      if (!svgEl) return;
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      /* Inline the country styles so the SVG is self-contained */
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = '.country { stroke: #fff; stroke-width: 0.5; }';
+      clone.insertBefore(style, clone.firstChild);
+      const blob = new Blob([clone.outerHTML], { type: 'image/svg+xml' });
+      downloadBlob(blob, 'country-visit-map.svg');
+    }
+
+    function exportPng() {
+      const svgEl = document.querySelector('#map svg');
+      if (!svgEl) return;
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = '.country { stroke: #fff; stroke-width: 0.5; }';
+      clone.insertBefore(style, clone.firstChild);
+      const svgData = new XMLSerializer().serializeToString(clone);
+      const canvas = document.createElement('canvas');
+      canvas.width = 1920;
+      canvas.height = 1000;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          downloadBlob(blob, 'country-visit-map.png');
+        }, 'image/png');
+      };
+      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    }
+
+    function exportJs() {
+      if (!countryData || !worldTopo) return;
+      /* Serialize the country visit data as plain JSON */
+      const visitData = {};
+      for (const [country, entry] of countryData) {
+        visitData[country] = {
+          firstVisit: entry.firstVisit.toISOString(),
+          lastVisit: entry.lastVisit.toISOString(),
+          visitCount: entry.visitCount,
+        };
+      }
+
+      const js = `// Country Visit Map Widget
+// Generated by Attention Feed: Locations
+// Include this file on any page with a <div id="country-visit-map"></div>
+// Requires: <script src="https://cdn.jsdelivr.net/npm/d3@7"><\/script>
+//           <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"><\/script>
+//
+// Usage:
+//   <div id="country-visit-map"></div>
+//   <script src="https://cdn.jsdelivr.net/npm/d3@7"><\/script>
+//   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"><\/script>
+//   <script src="country-visit-map.js"><\/script>
+
+(function() {
+  var VISIT_DATA = ${JSON.stringify(visitData)};
+
+  var COUNTRY_NAMES = ${JSON.stringify(COUNTRY_NAMES)};
+
+  var WORLD_TOPO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+
+  function render(containerId) {
+    var el = document.getElementById(containerId || 'country-visit-map');
+    if (!el) { console.error('country-visit-map: container not found'); return; }
+
+    fetch(WORLD_TOPO_URL).then(function(r) { return r.json(); }).then(function(worldTopo) {
+      var width = 960, height = 500;
+
+      var svg = d3.select(el)
+        .append('svg')
+        .attr('viewBox', '0 0 ' + width + ' ' + height)
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .style('width', '100%')
+        .style('height', 'auto');
+
+      var g = svg.append('g');
+
+      var projection = d3.geoNaturalEarth1()
+        .scale(153)
+        .translate([width / 2, height / 2]);
+
+      var path = d3.geoPath().projection(projection);
+      var countries = topojson.feature(worldTopo, worldTopo.objects.countries);
+
+      var now = new Date();
+      var maxYears = 0;
+      Object.values(VISIT_DATA).forEach(function(entry) {
+        var years = (now - new Date(entry.lastVisit)) / (365.25 * 24 * 60 * 60 * 1000);
+        if (years > maxYears) maxYears = years;
+      });
+      if (maxYears < 1) maxYears = 1;
+
+      g.selectAll('path')
+        .data(countries.features)
+        .join('path')
+        .attr('d', path)
+        .attr('fill', function(d) {
+          var name = COUNTRY_NAMES[d.id];
+          if (!name || !VISIT_DATA[name]) return '#e5e7eb';
+          var entry = VISIT_DATA[name];
+          var years = (now - new Date(entry.lastVisit)) / (365.25 * 24 * 60 * 60 * 1000);
+          var opacity = 1 - (years / maxYears) * 0.8;
+          return d3.color('#6366f1').copy({ opacity: opacity });
+        })
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 0.5);
+
+      /* Zoom */
+      var zoom = d3.zoom()
+        .scaleExtent([1, 8])
+        .on('zoom', function(event) { g.attr('transform', event.transform); });
+      svg.call(zoom);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { render(); });
+  } else {
+    render();
+  }
+})();
+`;
+      const blob = new Blob([js], { type: 'application/javascript' });
+      downloadBlob(blob, 'country-visit-map.js');
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    </script>
+</body>
+</html>
