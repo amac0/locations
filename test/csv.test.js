@@ -59,6 +59,14 @@ describe('parseDateStr', () => {
     assert.strictEqual(d.getUTCDate(), 25);
   });
 
+  it('parses bare year (e.g., "2017")', () => {
+    const d = parseDateStr('2017');
+    assert.ok(d instanceof Date);
+    assert.strictEqual(d.getUTCFullYear(), 2017);
+    assert.strictEqual(d.getUTCMonth(), 0);
+    assert.strictEqual(d.getUTCDate(), 1);
+  });
+
   it('returns null for invalid month 0/yyyy', () => {
     assert.strictEqual(parseDateStr('0/2020'), null);
   });

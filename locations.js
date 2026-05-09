@@ -196,7 +196,14 @@ export function parseDateStr(str) {
   const trimmed = str.trim();
   if (!trimmed) return null;
 
-  /* Try m/yyyy or mm/yyyy format first */
+  /* Try bare year (e.g., "2017") */
+  const yearOnly = trimmed.match(/^(\d{4})$/);
+  if (yearOnly) {
+    const year = parseInt(yearOnly[1], 10);
+    return new Date(Date.UTC(year, 0, 1));
+  }
+
+  /* Try m/yyyy or mm/yyyy format */
   const monthYear = trimmed.match(/^(\d{1,2})\/(\d{4})$/);
   if (monthYear) {
     const month = parseInt(monthYear[1], 10);
