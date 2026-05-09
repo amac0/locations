@@ -400,6 +400,62 @@ export function extractCoordinates(data) {
   return coords;
 }
 
+/**
+ * Extract raw visit rows from CSV for re-export.
+ * Returns array of { date: string, city: string, state: string, country: string }.
+ */
+export function extractCsvRows(csv) {
+  const rows = [];
+  if (!csv || typeof csv !== 'string' || !csv.trim()) return rows;
+
+  const lines = csv.trim().split(/\r?\n/);
+  if (lines.length < 2) return rows;
+
+  const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const dateIdx = header.findIndex(
+    h => h === 'date' || h === 'timestamp' || h === 'time'
+  );
+  const cityIdx = header.findIndex(h => h === 'city');
+  const stateIdx = header.findIndex(
+    h => h === 'state' || h === 'state/zip' || h === 'province'
+      || h === 'state_province' || h === 'region'
+  );
+  const countryIdx = header.findIndex(
+    h => h === 'country' || h === 'country_name'
+  );
+
+  if (dateIdx === -1) return rows;
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    const cols = line.split(',').map(c => c.trim());
+
+    const dateStr = cols[dateIdx];
+    const date = parseDateStr(dateStr);
+    if (!date) continue;
+
+    const city = cityIdx !== -1 ? cols[cityIdx] || '' : '';
+    const stateRaw = stateIdx !== -1 ? cols[stateIdx] || '' : '';
+    const countryRaw = countryIdx !== -1 ? cols[countryIdx] || '' : '';
+
+    const state = extractStateFromField(stateRaw)
+      || extractStateFromField(countryRaw) || '';
+    const country = normalizeCountryName(countryRaw) || '';
+
+    if (!state && !country) continue;
+
+    rows.push({
+      date: date.toISOString(),
+      city,
+      state,
+      country,
+    });
+  }
+
+  return rows;
+}
+
 /* US state abbreviation -> full name */
 const US_STATE_ABBREVS = {
   'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas',

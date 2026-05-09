@@ -396,6 +396,7 @@
                     <button id="export-svg-btn" class="btn btn-secondary">Download SVG</button>
                     <button id="export-png-btn" class="btn btn-secondary">Download PNG</button>
                     <button id="export-js-btn" class="btn btn-secondary">Download JS Widget</button>
+                    <button id="export-csv-btn" class="btn btn-secondary">Download CSV</button>
                     <button id="reset-zoom-btn" class="btn btn-secondary">Reset Zoom</button>
                 </div>
                 <div id="import-errors" class="import-errors hidden"></div>
@@ -415,7 +416,7 @@
     // ABOUTME: Main application script for the country visit map.
     // ABOUTME: Handles file upload, data processing, and D3 map rendering.
 
-    import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES, parseCsvToCountryMap, mergeCountryMaps, buildStateMap, parseCsvToStateMap } from './locations.js';
+    import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES, parseCsvToCountryMap, mergeCountryMaps, buildStateMap, parseCsvToStateMap, extractCsvRows, lookupState, normalizeCountryName } from './locations.js';
 
     /* ==================== STATE ==================== */
     let countryData = new Map(); // Map<string, {firstVisit, lastVisit, visitCount}>
@@ -424,6 +425,7 @@
     let usTopo = null;
     let caTopo = null;
     let allTimelineCoords = []; // accumulated coords from all Timeline uploads
+    let visitRows = []; // raw rows for CSV export: { date, city, state, country }
     let currentView = 'countries'; // 'countries' or 'states'
     let colorMode = 'recency'; // 'recency' or 'binary'
 
@@ -595,6 +597,24 @@
         for (const text of csvTexts) {
           const { stateMap: fileStateMap } = parseCsvToStateMap(text);
           stateData = mergeCountryMaps(stateData, fileStateMap);
+        }
+
+        /* Collect raw visit rows for CSV export */
+        for (const text of csvTexts) {
+          visitRows = visitRows.concat(extractCsvRows(text));
+        }
+        /* Generate rows from Timeline coords */
+        for (const coord of allCoords) {
+          const country = lookupCountry(coord.lat, coord.lng, worldTopo);
+          const state = lookupState(coord.lat, coord.lng, usTopo, caTopo);
+          if (country || state) {
+            visitRows.push({
+              date: new Date(coord.time).toISOString(),
+              city: '',
+              state: state || '',
+              country: country || '',
+            });
+          }
         }
 
         /* Restore UI state and render */
@@ -842,12 +862,14 @@
     document.getElementById('export-svg-btn').addEventListener('click', exportSvg);
     document.getElementById('export-png-btn').addEventListener('click', exportPng);
     document.getElementById('export-js-btn').addEventListener('click', exportJs);
+    document.getElementById('export-csv-btn').addEventListener('click', exportCsv);
     document.getElementById('reset-data-btn').addEventListener('click', resetAll);
 
     function resetAll() {
       countryData = new Map();
       stateData = new Map();
       allTimelineCoords = [];
+      visitRows = [];
       currentView = 'countries';
       colorMode = 'recency';
       document.getElementById('view-countries').classList.add('active');
@@ -1003,6 +1025,41 @@
 `;
       const blob = new Blob([js], { type: 'application/javascript' });
       downloadBlob(blob, 'country-visit-map.js');
+    }
+
+    function exportCsv() {
+      if (visitRows.length === 0) return;
+
+      /* Deduplicate by date+city+state+country */
+      const seen = new Set();
+      const unique = [];
+      for (const row of visitRows) {
+        const key = `${row.date}|${row.city}|${row.state}|${row.country}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(row);
+        }
+      }
+
+      /* Sort by date */
+      unique.sort((a, b) => a.date.localeCompare(b.date));
+
+      /* Build CSV — escape fields that contain commas or quotes */
+      const escField = (s) => {
+        if (!s) return '';
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+      };
+
+      const header = 'Date,City,Province/State/Region,Country';
+      const lines = unique.map(r =>
+        [r.date, escField(r.city), escField(r.state), escField(r.country)].join(',')
+      );
+      const csvText = header + '\n' + lines.join('\n') + '\n';
+      const blob = new Blob([csvText], { type: 'text/csv' });
+      downloadBlob(blob, 'country-visits.csv');
     }
 
     function downloadBlob(blob, filename) {
