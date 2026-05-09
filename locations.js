@@ -188,6 +188,41 @@ export function normalizeCountryName(name) {
 }
 
 /**
+ * Split a CSV row into fields, respecting double-quoted values (RFC 4180).
+ * Handles commas inside quotes and escaped quotes ("").
+ */
+export function splitCsvRow(row) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < row.length; i++) {
+    const ch = row[i];
+    if (inQuotes) {
+      if (ch === '"' && row[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        fields.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+/**
  * Parse a date string, handling ISO formats and m/yyyy or mm/yyyy.
  * Returns a Date object or null if unparseable.
  */
@@ -287,7 +322,7 @@ export function parseCsvToCountryMap(csv) {
     const row = lines[i];
     if (!row.trim()) continue;
 
-    const cols = row.split(',').map(c => c.trim());
+    const cols = splitCsvRow(row);
     const dateStr = cols[dateIdx];
     const countryStr = cols[countryIdx];
 
@@ -419,6 +454,7 @@ export function extractCsvRows(csv) {
   const stateIdx = header.findIndex(
     h => h === 'state' || h === 'state/zip' || h === 'province'
       || h === 'state_province' || h === 'region'
+      || h === 'province/state/region'
   );
   const countryIdx = header.findIndex(
     h => h === 'country' || h === 'country_name'
@@ -429,7 +465,7 @@ export function extractCsvRows(csv) {
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) continue;
-    const cols = line.split(',').map(c => c.trim());
+    const cols = splitCsvRow(line);
 
     const dateStr = cols[dateIdx];
     const date = parseDateStr(dateStr);
@@ -617,6 +653,7 @@ export function parseCsvToStateMap(csv) {
   const stateIdx = header.findIndex(
     h => h === 'state' || h === 'state/zip' || h === 'province'
       || h === 'state_province' || h === 'region'
+      || h === 'province/state/region'
   );
   const countryIdx = header.findIndex(
     h => h === 'country' || h === 'country_name'
@@ -634,7 +671,7 @@ export function parseCsvToStateMap(csv) {
     const row = lines[i];
     if (!row.trim()) continue;
 
-    const cols = row.split(',').map(c => c.trim());
+    const cols = splitCsvRow(row);
     const dateStr = cols[dateIdx];
     const stateStr = stateIdx !== -1 ? cols[stateIdx] : '';
     const countryStr = countryIdx !== -1 ? cols[countryIdx] : '';

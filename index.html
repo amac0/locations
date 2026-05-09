@@ -196,8 +196,8 @@
             border-radius: 8px;
         }
         .map-container .country {
-            stroke: #333;
-            stroke-width: 0.3;
+            stroke: #000;
+            stroke-width: 0.4;
             transition: opacity 0.15s;
         }
         .map-container .country:hover {
@@ -387,7 +387,7 @@
                     <span id="legend-recency-label-recent">Recent</span>
                     <canvas id="legend-gradient" class="legend-gradient" width="120" height="12"></canvas>
                     <span id="legend-recency-label-old">Long ago</span>
-                    <span class="legend-swatch" id="legend-swatch-visited" style="display:none;background:var(--app-primary)"></span>
+                    <span class="legend-swatch" id="legend-swatch-visited" style="display:none;background:#8b1a2b"></span>
                     <span id="legend-binary-label" style="display:none">Visited</span>
                     <span class="legend-swatch"></span>
                     <span>Not visited</span>
@@ -781,7 +781,7 @@
         .attr('fill', d => {
           const name = getName(d);
           if (!name || !activeData.has(name)) return '#ffffff';
-          if (colorMode === 'binary') return '#6e1423';
+          if (colorMode === 'binary') return '#8b1a2b';
           const entry = activeData.get(name);
           const years =
             (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
@@ -890,6 +890,7 @@
       uploadZone.querySelector('p').textContent =
         'Or click to select files (you can upload both to combine them)';
       document.getElementById('reset-data-btn').classList.add('hidden');
+      renderLegend();
     }
 
     function exportSvg() {
@@ -986,12 +987,14 @@
       var countries = topojson.feature(worldTopo, worldTopo.objects.countries);
 
       var now = new Date();
-      var maxYears = 0;
+      var minYears = Infinity, maxYears = 0;
       Object.values(VISIT_DATA).forEach(function(entry) {
         var years = (now - new Date(entry.lastVisit)) / (365.25 * 24 * 60 * 60 * 1000);
         if (years > maxYears) maxYears = years;
+        if (years < minYears) minYears = years;
       });
-      if (maxYears < 1) maxYears = 1;
+      if (minYears === Infinity) minYears = 0;
+      if (maxYears - minYears < 0.01) maxYears = minYears + 1;
 
       g.selectAll('path')
         .data(countries.features)
@@ -1002,10 +1005,11 @@
           if (!name || !VISIT_DATA[name]) return '#ffffff';
           var entry = VISIT_DATA[name];
           var years = (now - new Date(entry.lastVisit)) / (365.25 * 24 * 60 * 60 * 1000);
-          var opacity = 1 - (years / maxYears) * 0.8;
+          var t = (years - minYears) / (maxYears - minYears);
+          var opacity = 1 - t * 0.8;
           return d3.color('#6e1423').copy({ opacity: opacity });
         })
-        .attr('stroke', '#fff')
+        .attr('stroke', '#333')
         .attr('stroke-width', 0.5);
 
       /* Zoom */
@@ -1055,7 +1059,7 @@
 
       const header = 'Date,City,Province/State/Region,Country';
       const lines = unique.map(r =>
-        [r.date, escField(r.city), escField(r.state), escField(r.country)].join(',')
+        [escField(r.date), escField(r.city), escField(r.state), escField(r.country)].join(',')
       );
       const csvText = header + '\n' + lines.join('\n') + '\n';
       const blob = new Blob([csvText], { type: 'text/csv' });
