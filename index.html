@@ -223,7 +223,8 @@
             width: 24px;
             height: 12px;
             border-radius: 3px;
-            background: #e5e7eb;
+            background: #ffffff;
+            border: 1px solid var(--app-border);
             display: inline-block;
         }
 
@@ -734,16 +735,22 @@
 
       const path = d3.geoPath().projection(projection);
 
-      /* Color scale setup */
+      /* Color scale setup: compute min/max years for this view's data
+         so there is always a most-recent (full opacity) and
+         least-recent (faded) entry displayed */
       const now = new Date();
+      let minYears = Infinity;
       let maxYears = 0;
       if (colorMode === 'recency') {
         for (const entry of activeData.values()) {
           const years =
             (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
           if (years > maxYears) maxYears = years;
+          if (years < minYears) minYears = years;
         }
-        if (maxYears < 1) maxYears = 1;
+        if (minYears === Infinity) minYears = 0;
+        /* Ensure a spread so the scale isn't flat */
+        if (maxYears - minYears < 0.01) maxYears = minYears + 1;
       }
 
       g.selectAll('path')
@@ -753,12 +760,14 @@
         .attr('class', 'country')
         .attr('fill', d => {
           const name = getName(d);
-          if (!name || !activeData.has(name)) return '#e5e7eb';
+          if (!name || !activeData.has(name)) return '#ffffff';
           if (colorMode === 'binary') return '#6e1423';
           const entry = activeData.get(name);
           const years =
             (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
-          const opacity = 1 - (years / maxYears) * 0.8;
+          /* Scale from 1.0 (most recent) to 0.2 (oldest) */
+          const t = (years - minYears) / (maxYears - minYears);
+          const opacity = 1 - t * 0.8;
           return d3.color('#6e1423').copy({ opacity });
         })
         .on('mousemove', (event, d) => {
@@ -968,7 +977,7 @@
         .attr('d', path)
         .attr('fill', function(d) {
           var name = COUNTRY_NAMES[d.id];
-          if (!name || !VISIT_DATA[name]) return '#e5e7eb';
+          if (!name || !VISIT_DATA[name]) return '#ffffff';
           var entry = VISIT_DATA[name];
           var years = (now - new Date(entry.lastVisit)) / (365.25 * 24 * 60 * 60 * 1000);
           var opacity = 1 - (years / maxYears) * 0.8;
