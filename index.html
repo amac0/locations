@@ -311,18 +311,14 @@
 
         <div id="flash-area"></div>
 
-        <!-- Upload Section -->
+        <!-- Upload Section (always visible) -->
         <div id="upload-section" class="card">
             <div id="upload-zone" class="upload-zone">
                 <h3>Drop your Timeline.json or CSV file here</h3>
                 <p>Or click to select files (you can upload both to combine them)</p>
                 <input type="file" id="file-input" accept=".json,.csv" multiple>
             </div>
-        </div>
-
-        <!-- Processing indicator -->
-        <div id="processing-section" class="card hidden">
-            <div class="processing">Processing location data...</div>
+            <div id="processing-indicator" class="processing hidden">Processing location data...</div>
         </div>
 
         <!-- Results Section (hidden until data processed) -->
@@ -342,6 +338,7 @@
                     <button id="export-png-btn" class="btn btn-secondary">Download PNG</button>
                     <button id="export-js-btn" class="btn btn-secondary">Download JS Widget</button>
                     <button id="reset-zoom-btn" class="btn btn-secondary">Reset Zoom</button>
+                    <button id="reset-data-btn" class="btn btn-secondary" style="margin-left:auto;color:var(--app-primary)">Reset All Data</button>
                 </div>
                 <div id="import-errors" class="import-errors hidden"></div>
             </div>
@@ -449,7 +446,10 @@
         return;
       }
 
-      document.getElementById('processing-section').classList.remove('hidden');
+      const uploadZoneEl = document.getElementById('upload-zone');
+      const processingEl = document.getElementById('processing-indicator');
+      uploadZoneEl.classList.add('hidden');
+      processingEl.classList.remove('hidden');
 
       try {
         if (!worldTopo) {
@@ -509,7 +509,9 @@
         countryData = mergeCountryMaps(countryData, newData);
         allTimelineCoords = allTimelineCoords.concat(allCoords);
 
-        /* Update upload zone to show "add more" state */
+        /* Show upload zone again with "add more" text */
+        uploadZoneEl.classList.remove('hidden');
+        processingEl.classList.add('hidden');
         uploadZone.querySelector('h3').textContent =
           'Drop another file to add more data';
         uploadZone.querySelector('p').textContent =
@@ -520,7 +522,8 @@
         /* Reset file input so same file can be re-selected */
         fileInput.value = '';
       } catch (err) {
-        document.getElementById('processing-section').classList.add('hidden');
+        uploadZoneEl.classList.remove('hidden');
+        processingEl.classList.add('hidden');
         showError(err.message);
         fileInput.value = '';
       }
@@ -528,7 +531,6 @@
 
     /* ==================== RESULTS RENDERING ==================== */
     function renderResults(coords) {
-      document.getElementById('processing-section').classList.add('hidden');
       document.getElementById('results-section').classList.remove('hidden');
 
       /* Compute date range from coords + countryData */
@@ -675,6 +677,20 @@
     document.getElementById('export-svg-btn').addEventListener('click', exportSvg);
     document.getElementById('export-png-btn').addEventListener('click', exportPng);
     document.getElementById('export-js-btn').addEventListener('click', exportJs);
+    document.getElementById('reset-data-btn').addEventListener('click', resetAll);
+
+    function resetAll() {
+      countryData = new Map();
+      allTimelineCoords = [];
+      document.getElementById('results-section').classList.add('hidden');
+      document.getElementById('import-errors').classList.add('hidden');
+      document.getElementById('map').innerHTML = '';
+      flashArea.innerHTML = '';
+      uploadZone.querySelector('h3').textContent =
+        'Drop your Timeline.json or CSV file here';
+      uploadZone.querySelector('p').textContent =
+        'Or click to select files (you can upload both to combine them)';
+    }
 
     function exportSvg() {
       const svgEl = document.querySelector('#map svg');
