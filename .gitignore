@@ -1,5 +1,6 @@
 # Data files - do not commit user location data
 Timeline.json
+Countries.csv
 takeout-*.zip
 
 # Dependencies

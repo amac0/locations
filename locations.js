@@ -188,6 +188,31 @@ export function normalizeCountryName(name) {
 }
 
 /**
+ * Parse a date string, handling ISO formats and m/yyyy or mm/yyyy.
+ * Returns a Date object or null if unparseable.
+ */
+export function parseDateStr(str) {
+  if (!str || typeof str !== 'string') return null;
+  const trimmed = str.trim();
+  if (!trimmed) return null;
+
+  /* Try m/yyyy or mm/yyyy format first */
+  const monthYear = trimmed.match(/^(\d{1,2})\/(\d{4})$/);
+  if (monthYear) {
+    const month = parseInt(monthYear[1], 10);
+    const year = parseInt(monthYear[2], 10);
+    if (month >= 1 && month <= 12) {
+      return new Date(Date.UTC(year, month - 1, 1));
+    }
+  }
+
+  /* Fall back to standard Date parsing */
+  const date = new Date(trimmed);
+  if (isNaN(date.getTime())) return null;
+  return date;
+}
+
+/**
  * Parse a CSV string with Date and Country columns into a country map.
  * Returns { countryMap: Map, errors: string[] }.
  * The column matching is case-insensitive.
@@ -245,8 +270,8 @@ export function parseCsvToCountryMap(csv) {
       continue;
     }
 
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) {
+    const date = parseDateStr(dateStr);
+    if (!date) {
       errors.push(`Row ${i + 1}: invalid date "${dateStr}".`);
       continue;
     }

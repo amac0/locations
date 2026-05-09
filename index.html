@@ -363,8 +363,9 @@
     import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES, parseCsvToCountryMap, mergeCountryMaps } from './locations.js';
 
     /* ==================== STATE ==================== */
-    let countryData = null; // Map<string, {firstVisit, lastVisit, visitCount}>
+    let countryData = new Map(); // Map<string, {firstVisit, lastVisit, visitCount}>
     let worldTopo = null;
+    let allTimelineCoords = []; // accumulated coords from all Timeline uploads
 
     /* ==================== UPLOAD HANDLING ==================== */
     const uploadZone = document.getElementById('upload-zone');
@@ -448,7 +449,6 @@
         return;
       }
 
-      document.getElementById('upload-section').classList.add('hidden');
       document.getElementById('processing-section').classList.remove('hidden');
 
       try {
@@ -494,10 +494,10 @@
           csvMap = mergeCountryMaps(csvMap, fileMap);
         }
 
-        /* Merge all sources */
-        countryData = mergeCountryMaps(timelineMap, csvMap);
+        /* Merge new data from this upload */
+        const newData = mergeCountryMaps(timelineMap, csvMap);
 
-        if (countryData.size === 0) {
+        if (newData.size === 0 && countryData.size === 0) {
           throw new Error(
             'No country data found in the uploaded file(s). '
             + 'Make sure you are uploading Timeline.json from Google Takeout '
@@ -505,12 +505,24 @@
           );
         }
 
-        renderResults(allCoords);
+        /* Merge with existing data from previous uploads */
+        countryData = mergeCountryMaps(countryData, newData);
+        allTimelineCoords = allTimelineCoords.concat(allCoords);
+
+        /* Update upload zone to show "add more" state */
+        uploadZone.querySelector('h3').textContent =
+          'Drop another file to add more data';
+        uploadZone.querySelector('p').textContent =
+          'Upload a Timeline.json or CSV to combine with existing data';
+
+        renderResults(allTimelineCoords);
         showImportErrors(importErrors);
+        /* Reset file input so same file can be re-selected */
+        fileInput.value = '';
       } catch (err) {
         document.getElementById('processing-section').classList.add('hidden');
-        document.getElementById('upload-section').classList.remove('hidden');
         showError(err.message);
+        fileInput.value = '';
       }
     }
 

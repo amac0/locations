@@ -7,7 +7,42 @@ import {
   normalizeCountryName,
   parseCsvToCountryMap,
   mergeCountryMaps,
+  parseDateStr,
 } from '../locations.js';
+
+describe('parseDateStr', () => {
+  it('parses ISO date strings', () => {
+    const d = parseDateStr('2017-06-15T16:36:33Z');
+    assert.ok(d instanceof Date);
+    assert.strictEqual(d.getUTCFullYear(), 2017);
+  });
+
+  it('parses m/yyyy format', () => {
+    const d = parseDateStr('6/2017');
+    assert.ok(d instanceof Date);
+    assert.strictEqual(d.getUTCFullYear(), 2017);
+    assert.strictEqual(d.getUTCMonth(), 5); // June = 5
+    assert.strictEqual(d.getUTCDate(), 1);
+  });
+
+  it('parses mm/yyyy format', () => {
+    const d = parseDateStr('12/2019');
+    assert.ok(d instanceof Date);
+    assert.strictEqual(d.getUTCFullYear(), 2019);
+    assert.strictEqual(d.getUTCMonth(), 11); // December = 11
+  });
+
+  it('returns null for invalid strings', () => {
+    assert.strictEqual(parseDateStr('not-a-date'), null);
+    assert.strictEqual(parseDateStr(''), null);
+  });
+
+  it('parses yyyy-mm-dd format', () => {
+    const d = parseDateStr('2020-03-15');
+    assert.ok(d instanceof Date);
+    assert.strictEqual(d.getUTCFullYear(), 2020);
+  });
+});
 
 describe('normalizeCountryName', () => {
   it('normalizes "USA" to canonical name', () => {
@@ -159,6 +194,18 @@ describe('parseCsvToCountryMap', () => {
     assert.strictEqual(countryMap.size, 0);
     assert.strictEqual(errors.length, 1);
     assert.ok(errors[0].toLowerCase().includes('country'));
+  });
+
+  it('parses dates in m/yyyy format', () => {
+    const csv = 'Date,Country\n'
+      + '6/2017,France\n'
+      + '12/2019,Germany\n';
+    const { countryMap, errors } = parseCsvToCountryMap(csv);
+    assert.strictEqual(errors.length, 0);
+    assert.strictEqual(countryMap.size, 2);
+    const france = countryMap.get('France');
+    assert.strictEqual(france.firstVisit.getUTCFullYear(), 2017);
+    assert.strictEqual(france.firstVisit.getUTCMonth(), 5);
   });
 
   it('handles empty CSV', () => {
