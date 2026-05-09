@@ -4,7 +4,7 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { lookupCountry, buildCountryMap } from '../locations.js';
+import { lookupCountry, buildCountryMap, COUNTRY_NAMES } from '../locations.js';
 
 let geoData;
 before(() => {
@@ -73,5 +73,15 @@ describe('buildCountryMap', () => {
   it('handles empty coordinate list', () => {
     const map = buildCountryMap([], geoData);
     assert.strictEqual(map.size, 0);
+  });
+});
+
+describe('COUNTRY_NAMES', () => {
+  it('does not map code 720 (formerly Yemen, not South Sudan)', () => {
+    assert.strictEqual(COUNTRY_NAMES['720'], undefined);
+  });
+
+  it('maps code 728 to South Sudan', () => {
+    assert.strictEqual(COUNTRY_NAMES['728'], 'South Sudan');
   });
 });

@@ -85,6 +85,20 @@ describe('e2e: full pipeline with real or fixture data', () => {
     assert.ok(html.includes('exportJs'), 'Should have JS export function');
   });
 
+  it('showError uses textContent to prevent XSS', () => {
+    const html = readFileSync(
+      new URL('../index.html', import.meta.url), 'utf-8'
+    );
+    assert.ok(
+      html.includes('div.textContent = msg'),
+      'showError should use textContent, not innerHTML, to prevent XSS'
+    );
+    assert.ok(
+      !html.includes('flash-error">${msg}'),
+      'showError should not interpolate msg into innerHTML'
+    );
+  });
+
   it('index.html has zoom and pan functionality', () => {
     const html = readFileSync(
       new URL('../index.html', import.meta.url), 'utf-8'
