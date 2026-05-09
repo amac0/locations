@@ -62,7 +62,7 @@ export const COUNTRY_NAMES = {
   '674': 'San Marino', '678': 'Sao Tome and Principe', '682': 'Saudi Arabia',
   '686': 'Senegal', '688': 'Serbia', '690': 'Seychelles', '694': 'Sierra Leone',
   '702': 'Singapore', '703': 'Slovakia', '704': 'Vietnam', '705': 'Slovenia',
-  '706': 'Somalia', '710': 'South Africa', '716': 'Zimbabwe', '720': 'South Sudan',
+  '706': 'Somalia', '710': 'South Africa', '716': 'Zimbabwe',
   '724': 'Spain', '728': 'South Sudan', '729': 'Sudan', '732': 'Western Sahara',
   '740': 'Suriname', '748': 'Eswatini', '752': 'Sweden', '756': 'Switzerland',
   '760': 'Syria', '762': 'Tajikistan', '764': 'Thailand', '768': 'Togo',
