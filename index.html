@@ -222,6 +222,31 @@
             color: var(--app-text);
         }
 
+        /* ==================== IMPORT ERRORS ==================== */
+        .import-errors {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: #991b1b;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .import-errors summary {
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.8125rem;
+        }
+        .import-errors ul {
+            margin-top: 0.25rem;
+            padding-left: 1.25rem;
+        }
+        .import-errors li {
+            margin-bottom: 0.125rem;
+        }
+
         /* ==================== TOOLTIP ==================== */
         .tooltip {
             position: fixed;
@@ -271,14 +296,14 @@
 
     <main class="page">
         <h1 class="page-title">Country Visit Map</h1>
-        <p class="page-subtitle">Upload your Google Takeout Timeline.json to see a map of countries you've visited. All processing happens in your browser — your data is not uploaded anywhere. NB Coded by AI with Claude Code.</p>
+        <p class="page-subtitle">Upload your Google Takeout Timeline.json or a CSV with country visits to see a map of countries you've visited. Upload both to combine them. All processing happens in your browser — your data is not uploaded anywhere. NB Coded by AI with Claude Code.</p>
 
         <details class="help-panel">
             <summary>How to use this tool</summary>
             <div class="help-content">
                 <ol>
-                    <li><strong>Get your data:</strong> Open Google Maps on your phone, go to Settings > Personal content > Export Timeline data. Download the resulting file.</li>
-                    <li><strong>Upload:</strong> Drop the Timeline.json file below or click to select it.</li>
+                    <li><strong>Get your data:</strong> Open Google Maps on your phone, go to Settings > Personal content > Export Timeline data. Or prepare a CSV with "Date" and "Country" columns.</li>
+                    <li><strong>Upload:</strong> Drop your Timeline.json and/or CSV file below, or click to select. You can upload both at once to combine them.</li>
                     <li><strong>View:</strong> A world map appears showing every country you've visited, colored by how recently you were there.</li>
                 </ol>
             </div>
@@ -289,9 +314,9 @@
         <!-- Upload Section -->
         <div id="upload-section" class="card">
             <div id="upload-zone" class="upload-zone">
-                <h3>Drop your Timeline.json file here</h3>
-                <p>Or click to select a file</p>
-                <input type="file" id="file-input" accept=".json">
+                <h3>Drop your Timeline.json or CSV file here</h3>
+                <p>Or click to select files (you can upload both to combine them)</p>
+                <input type="file" id="file-input" accept=".json,.csv" multiple>
             </div>
         </div>
 
@@ -318,6 +343,7 @@
                     <button id="export-js-btn" class="btn btn-secondary">Download JS Widget</button>
                     <button id="reset-zoom-btn" class="btn btn-secondary">Reset Zoom</button>
                 </div>
+                <div id="import-errors" class="import-errors hidden"></div>
             </div>
         </div>
     </main>
@@ -334,7 +360,7 @@
     // ABOUTME: Main application script for the country visit map.
     // ABOUTME: Handles file upload, data processing, and D3 map rendering.
 
-    import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES } from './locations.js';
+    import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES, parseCsvToCountryMap, mergeCountryMaps } from './locations.js';
 
     /* ==================== STATE ==================== */
     let countryData = null; // Map<string, {firstVisit, lastVisit, visitCount}>
@@ -359,13 +385,13 @@
     uploadZone.addEventListener('drop', (e) => {
       e.preventDefault();
       uploadZone.classList.remove('dragover');
-      const file = e.dataTransfer.files[0];
-      if (file) processFile(file);
+      const files = [...e.dataTransfer.files];
+      if (files.length > 0) processFiles(files);
     });
 
     fileInput.addEventListener('change', () => {
-      const file = fileInput.files[0];
-      if (file) processFile(file);
+      const files = [...fileInput.files];
+      if (files.length > 0) processFiles(files);
     });
 
     function showError(msg) {
@@ -376,11 +402,49 @@
       flashArea.appendChild(div);
     }
 
-    async function processFile(file) {
+    function showImportErrors(errors) {
+      const el = document.getElementById('import-errors');
+      if (!errors || errors.length === 0) {
+        el.classList.add('hidden');
+        return;
+      }
+      el.classList.remove('hidden');
+      const limited = errors.slice(0, 20);
+      const more = errors.length > 20
+        ? `<li>...and ${errors.length - 20} more</li>` : '';
+      el.innerHTML = `<details><summary>${errors.length} import `
+        + `warning${errors.length > 1 ? 's' : ''}</summary>`
+        + `<ul>${limited.map(e => `<li>${document.createElement('span').textContent = e, e}</li>`).join('')}${more}</ul></details>`;
+      /* Re-render safely with textContent */
+      const ul = el.querySelector('ul');
+      ul.innerHTML = '';
+      for (const err of limited) {
+        const li = document.createElement('li');
+        li.textContent = err;
+        ul.appendChild(li);
+      }
+      if (errors.length > 20) {
+        const li = document.createElement('li');
+        li.textContent = `...and ${errors.length - 20} more`;
+        ul.appendChild(li);
+      }
+    }
+
+    async function processFiles(files) {
       flashArea.innerHTML = '';
 
-      if (!file.name.endsWith('.json')) {
-        showError('Please upload a .json file (Timeline.json from Google Takeout).');
+      const jsonFiles = files.filter(f => f.name.endsWith('.json'));
+      const csvFiles = files.filter(f => f.name.endsWith('.csv'));
+      const otherFiles = files.filter(
+        f => !f.name.endsWith('.json') && !f.name.endsWith('.csv')
+      );
+
+      if (otherFiles.length > 0 && jsonFiles.length === 0 && csvFiles.length === 0) {
+        showError(
+          'Please upload a .json or .csv file. '
+          + 'Supported: Timeline.json from Google Takeout, '
+          + 'or a CSV with Date and Country columns.'
+        );
         return;
       }
 
@@ -388,32 +452,61 @@
       document.getElementById('processing-section').classList.remove('hidden');
 
       try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-
-        if (!data.semanticSegments) {
-          throw new Error(
-            'This does not look like a Timeline.json file '
-            + '(missing semanticSegments).'
-          );
-        }
-
         if (!worldTopo) {
           const resp = await fetch('world-110m.json');
           worldTopo = await resp.json();
         }
 
-        const coords = extractCoordinates(data);
-        if (coords.length === 0) {
+        let timelineMap = new Map();
+        let csvMap = new Map();
+        let allCoords = [];
+        const importErrors = [];
+
+        /* Process JSON files */
+        for (const file of jsonFiles) {
+          const text = await file.text();
+          const data = JSON.parse(text);
+
+          if (!data.semanticSegments) {
+            importErrors.push(
+              `${file.name}: not a Timeline.json file (missing semanticSegments).`
+            );
+            continue;
+          }
+
+          const coords = extractCoordinates(data);
+          if (coords.length === 0) {
+            importErrors.push(`${file.name}: no location data found.`);
+            continue;
+          }
+          allCoords = allCoords.concat(coords);
+          const fileMap = buildCountryMap(coords, worldTopo);
+          timelineMap = mergeCountryMaps(timelineMap, fileMap);
+        }
+
+        /* Process CSV files */
+        for (const file of csvFiles) {
+          const text = await file.text();
+          const { countryMap: fileMap, errors } = parseCsvToCountryMap(text);
+          if (errors.length > 0) {
+            importErrors.push(...errors.map(e => `${file.name}: ${e}`));
+          }
+          csvMap = mergeCountryMaps(csvMap, fileMap);
+        }
+
+        /* Merge all sources */
+        countryData = mergeCountryMaps(timelineMap, csvMap);
+
+        if (countryData.size === 0) {
           throw new Error(
-            'No location data found in this file. '
-            + 'Make sure you are uploading Timeline.json '
-            + 'from Google Takeout.'
+            'No country data found in the uploaded file(s). '
+            + 'Make sure you are uploading Timeline.json from Google Takeout '
+            + 'or a CSV with Date and Country columns.'
           );
         }
 
-        countryData = buildCountryMap(coords, worldTopo);
-        renderResults(coords);
+        renderResults(allCoords);
+        showImportErrors(importErrors);
       } catch (err) {
         document.getElementById('processing-section').classList.add('hidden');
         document.getElementById('upload-section').classList.remove('hidden');
@@ -426,18 +519,38 @@
       document.getElementById('processing-section').classList.add('hidden');
       document.getElementById('results-section').classList.remove('hidden');
 
-      // Stats
+      /* Compute date range from coords + countryData */
+      const fmtOpts = { year: 'numeric', month: 'short' };
+      let minDate, maxDate;
+
+      /* Try coords first (from Timeline.json) */
       const times = coords
         .map(c => new Date(c.time).getTime())
         .filter(t => !isNaN(t));
-      const minDate = new Date(Math.min(...times));
-      const maxDate = new Date(Math.max(...times));
-      const fmtOpts = { year: 'numeric', month: 'short' };
+      if (times.length > 0) {
+        minDate = new Date(Math.min(...times));
+        maxDate = new Date(Math.max(...times));
+      }
+
+      /* Also check countryData entries (from CSV or merged) */
+      for (const entry of countryData.values()) {
+        if (!minDate || entry.firstVisit < minDate) {
+          minDate = entry.firstVisit;
+        }
+        if (!maxDate || entry.lastVisit > maxDate) {
+          maxDate = entry.lastVisit;
+        }
+      }
+
       const statsLine = document.getElementById('stats-line');
-      statsLine.innerHTML =
-        `<strong>${countryData.size}</strong> countries visited`
-        + ` &middot; ${minDate.toLocaleDateString('en-US', fmtOpts)}`
-        + ` &ndash; ${maxDate.toLocaleDateString('en-US', fmtOpts)}`;
+      let statsHtml =
+        `<strong>${countryData.size}</strong> countries visited`;
+      if (minDate && maxDate) {
+        statsHtml +=
+          ` &middot; ${minDate.toLocaleDateString('en-US', fmtOpts)}`
+          + ` &ndash; ${maxDate.toLocaleDateString('en-US', fmtOpts)}`;
+      }
+      statsLine.innerHTML = statsHtml;
 
       renderMap();
       renderLegend();
