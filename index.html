@@ -380,6 +380,10 @@
                     <button id="color-recency" class="toggle-btn active">Recency</button>
                     <button id="color-binary" class="toggle-btn">Visited</button>
                 </div>
+                <div class="view-toggle">
+                    <button id="theme-default" class="toggle-btn active">Default</button>
+                    <button id="theme-pirate" class="toggle-btn">Pirate</button>
+                </div>
             </div>
             <div class="map-container">
                 <div id="map"></div>
@@ -428,6 +432,7 @@
     let visitRows = []; // raw rows for CSV export: { date, city, state, country }
     let currentView = 'countries'; // 'countries' or 'states'
     let colorMode = 'recency'; // 'recency' or 'binary'
+    let mapTheme = 'default'; // 'default' or 'pirate'
 
     /* ==================== UPLOAD HANDLING ==================== */
     const uploadZone = document.getElementById('upload-zone');
@@ -673,6 +678,22 @@
       renderResults(allTimelineCoords);
     });
 
+    document.getElementById('theme-default').addEventListener('click', () => {
+      if (mapTheme === 'default') return;
+      mapTheme = 'default';
+      document.getElementById('theme-default').classList.add('active');
+      document.getElementById('theme-pirate').classList.remove('active');
+      renderResults(allTimelineCoords);
+    });
+
+    document.getElementById('theme-pirate').addEventListener('click', () => {
+      if (mapTheme === 'pirate') return;
+      mapTheme = 'pirate';
+      document.getElementById('theme-pirate').classList.add('active');
+      document.getElementById('theme-default').classList.remove('active');
+      renderResults(allTimelineCoords);
+    });
+
     /* ==================== RESULTS RENDERING ==================== */
     function renderResults(coords) {
       document.getElementById('results-section').classList.remove('hidden');
@@ -711,6 +732,11 @@
     function renderMap() {
       const mapEl = document.getElementById('map');
       mapEl.innerHTML = '';
+
+      if (mapTheme === 'pirate') {
+        renderPirateMap(mapEl);
+        return;
+      }
 
       const width = 960;
       const height = 500;
@@ -827,6 +853,164 @@
       });
     }
 
+    /* ==================== PIRATE THEME ==================== */
+    function renderPirateMap(mapEl) {
+      const width = 960, height = 500;
+      const activeData = currentView === 'countries' ? countryData : stateData;
+
+      const svg = d3.select(mapEl).append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet');
+
+      const defs = svg.append('defs');
+
+      /* Ink wobble filter */
+      const wobble = defs.append('filter').attr('id', 'pirate-ink')
+        .attr('x', '-2%').attr('y', '-2%').attr('width', '104%').attr('height', '104%');
+      wobble.append('feTurbulence').attr('type', 'fractalNoise')
+        .attr('baseFrequency', '0.05').attr('numOctaves', '3').attr('seed', '15').attr('result', 'noise');
+      wobble.append('feDisplacementMap').attr('in', 'SourceGraphic').attr('in2', 'noise')
+        .attr('scale', '2').attr('xChannelSelector', 'R').attr('yChannelSelector', 'G');
+
+      /* Ocean texture */
+      const oceanTex = defs.append('filter').attr('id', 'pirate-ocean')
+        .attr('x', '0%').attr('y', '0%').attr('width', '100%').attr('height', '100%');
+      oceanTex.append('feTurbulence').attr('type', 'fractalNoise')
+        .attr('baseFrequency', '0.02 0.06').attr('numOctaves', '3').attr('seed', '20').attr('result', 'noise');
+      oceanTex.append('feDiffuseLighting').attr('in', 'noise')
+        .attr('lighting-color', '#2a4050').attr('surfaceScale', '0.8').attr('result', 'lit')
+        .append('feDistantLight').attr('azimuth', '180').attr('elevation', '40');
+      oceanTex.append('feBlend').attr('in', 'SourceGraphic').attr('in2', 'lit').attr('mode', 'screen');
+
+      let projection, features, getName;
+      if (currentView === 'countries') {
+        projection = d3.geoNaturalEarth1().scale(153).translate([width/2, height/2]);
+        features = topojson.feature(worldTopo, worldTopo.objects.countries).features;
+        getName = d => COUNTRY_NAMES[d.id];
+      } else {
+        projection = d3.geoConicConformal()
+          .rotate([95, 0]).center([0, 45]).parallels([20, 60])
+          .scale(420).translate([width / 2, height / 2]);
+        const usFeatures = topojson.feature(usTopo, usTopo.objects.states).features;
+        const caFeatures = topojson.feature(caTopo, caTopo.objects.provinces).features;
+        features = [...usFeatures, ...caFeatures];
+        getName = d => d.properties?.name || null;
+      }
+
+      const path = d3.geoPath().projection(projection);
+      const land = topojson.feature(worldTopo, worldTopo.objects.land);
+
+      /* Dark ocean */
+      svg.append('rect').attr('width', width).attr('height', height).attr('fill', '#1a2a30');
+      svg.append('rect').attr('width', width).attr('height', height)
+        .attr('fill', '#1a2a30').attr('opacity', 0.4).attr('filter', 'url(#pirate-ocean)');
+
+      /* Rope border */
+      svg.append('rect').attr('x', 8).attr('y', 8).attr('width', width-16).attr('height', height-16)
+        .attr('fill', 'none').attr('stroke', '#8b6a40').attr('stroke-width', 3)
+        .attr('stroke-dasharray', '8,4').attr('rx', 4);
+      svg.append('rect').attr('x', 12).attr('y', 12).attr('width', width-24).attr('height', height-24)
+        .attr('fill', 'none').attr('stroke', '#6a5030').attr('stroke-width', 1).attr('rx', 2);
+
+      /* Land base (only for countries view) */
+      if (currentView === 'countries') {
+        svg.append('path').datum(land).attr('d', path)
+          .attr('fill', '#d4b896').attr('stroke', 'none');
+      }
+
+      /* Color scale for recency in pirate theme */
+      const now = new Date();
+      let minYears = Infinity, maxYears = 0;
+      if (colorMode === 'recency') {
+        for (const entry of activeData.values()) {
+          const years = (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
+          if (years > maxYears) maxYears = years;
+          if (years < minYears) minYears = years;
+        }
+        if (minYears === Infinity) minYears = 0;
+        if (maxYears - minYears < 0.01) maxYears = minYears + 1;
+      }
+
+      const g = svg.append('g').attr('filter', 'url(#pirate-ink)');
+
+      g.selectAll('path').data(features).join('path')
+        .attr('d', path)
+        .attr('fill', d => {
+          const name = getName(d);
+          if (!name || !activeData.has(name)) return '#d4b896';
+          if (colorMode === 'binary') return '#c49a40';
+          const entry = activeData.get(name);
+          const years = (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
+          const t = (years - minYears) / (maxYears - minYears);
+          /* Golden gradient: bright gold (recent) to faded (old) */
+          const opacity = 0.8 - t * 0.5;
+          return d3.color('#c49a40').copy({ opacity });
+        })
+        .attr('stroke', d => {
+          const name = getName(d);
+          if (name && activeData.has(name)) return '#5c3a1a';
+          return '#8b6a40';
+        })
+        .attr('stroke-width', d => {
+          const name = getName(d);
+          return (name && activeData.has(name)) ? 0.7 : 0.4;
+        })
+        .attr('stroke-opacity', d => {
+          const name = getName(d);
+          return (name && activeData.has(name)) ? 0.7 : 0.4;
+        })
+        .on('mousemove', (event, d) => {
+          const name = getName(d);
+          const tooltip = document.getElementById('tooltip');
+          if (name && activeData.has(name)) {
+            const entry = activeData.get(name);
+            const fmtOpts = { year: 'numeric', month: 'short' };
+            tooltip.querySelector('.country-name').textContent = name;
+            tooltip.querySelector('.visit-info').textContent =
+              `Last visit: ${entry.lastVisit.toLocaleDateString('en-US', fmtOpts)}`
+              + ` · ${entry.visitCount} visit${entry.visitCount > 1 ? 's' : ''}`;
+            tooltip.style.display = 'block';
+          } else if (name) {
+            tooltip.querySelector('.country-name').textContent = name;
+            tooltip.querySelector('.visit-info').textContent = 'Not visited';
+            tooltip.style.display = 'block';
+          }
+          tooltip.style.left = (event.clientX + 12) + 'px';
+          tooltip.style.top = (event.clientY - 10) + 'px';
+        })
+        .on('mouseleave', () => {
+          document.getElementById('tooltip').style.display = 'none';
+        });
+
+      /* Compass rose */
+      const comp = svg.append('g').attr('transform', `translate(${width - 80}, ${height - 70})`);
+      const cs = 25;
+      comp.append('polygon').attr('points', `0,${-cs} ${cs*0.12},${-cs*0.15} 0,${cs*0.15} ${-cs*0.12},${-cs*0.15}`)
+        .attr('fill', '#c49a40');
+      comp.append('polygon').attr('points', `0,${cs} ${cs*0.12},${cs*0.15} 0,${-cs*0.15} ${-cs*0.12},${cs*0.15}`)
+        .attr('fill', '#8b6a40');
+      comp.append('polygon').attr('points', `${-cs},0 ${-cs*0.15},${cs*0.12} ${cs*0.15},0 ${-cs*0.15},${-cs*0.12}`)
+        .attr('fill', '#c49a40');
+      comp.append('polygon').attr('points', `${cs},0 ${cs*0.15},${cs*0.12} ${-cs*0.15},0 ${cs*0.15},${-cs*0.12}`)
+        .attr('fill', '#8b6a40');
+      comp.append('circle').attr('r', cs * 0.85).attr('fill', 'none')
+        .attr('stroke', '#c49a40').attr('stroke-width', 0.8).attr('stroke-opacity', 0.6);
+      comp.append('circle').attr('r', cs * 0.15).attr('fill', '#c49a40');
+      comp.append('text').attr('y', -cs - 4).attr('text-anchor', 'middle')
+        .attr('font-size', 9).attr('fill', '#c49a40').attr('font-weight', 'bold')
+        .attr('font-family', 'serif').text('N');
+
+      /* Zoom */
+      const zoom = d3.zoom()
+        .scaleExtent([1, 8])
+        .on('zoom', (event) => { g.attr('transform', event.transform); });
+      svg.call(zoom);
+
+      document.getElementById('reset-zoom-btn').addEventListener('click', () => {
+        svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
+      });
+    }
+
     /* ==================== LEGEND ==================== */
     function renderLegend() {
       const canvas = document.getElementById('legend-gradient');
@@ -872,10 +1056,13 @@
       visitRows = [];
       currentView = 'countries';
       colorMode = 'recency';
+      mapTheme = 'default';
       document.getElementById('view-countries').classList.add('active');
       document.getElementById('view-states').classList.remove('active');
       document.getElementById('color-recency').classList.add('active');
       document.getElementById('color-binary').classList.remove('active');
+      document.getElementById('theme-default').classList.add('active');
+      document.getElementById('theme-pirate').classList.remove('active');
       document.getElementById('results-section').classList.add('hidden');
       document.getElementById('import-errors').classList.add('hidden');
       /* Clean up D3 SVG and zoom listeners */
