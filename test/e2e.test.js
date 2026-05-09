@@ -71,6 +71,19 @@ describe('e2e: full pipeline with real or fixture data', () => {
     assert.ok(html.includes('world-110m.json'), 'Should reference world-110m.json');
     assert.ok(html.includes('upload-zone'), 'Should have upload zone');
     assert.ok(html.includes('af-header'), 'Should have AF header');
+    assert.ok(html.includes('.csv'), 'Should accept CSV files');
+    assert.ok(
+      html.includes('parseCsvToCountryMap'),
+      'Should import CSV parsing function'
+    );
+    assert.ok(
+      html.includes('mergeCountryMaps'),
+      'Should import merge function'
+    );
+    assert.ok(
+      html.includes('import-errors'),
+      'Should have import errors display area'
+    );
   });
 
   it('index.html has export buttons for SVG, PNG, and JS widget', () => {
