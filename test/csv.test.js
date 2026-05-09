@@ -74,6 +74,18 @@ describe('parseDateStr', () => {
   it('returns null for invalid month 13/yyyy', () => {
     assert.strictEqual(parseDateStr('13/2020'), null);
   });
+
+  it('returns null for impossible dates like Feb 30', () => {
+    assert.strictEqual(parseDateStr('2/30/2020'), null);
+  });
+
+  it('returns null for impossible dates like Apr 31', () => {
+    assert.strictEqual(parseDateStr('4/31/2020'), null);
+  });
+
+  it('returns null for two-digit years (0099)', () => {
+    assert.strictEqual(parseDateStr('0099'), null);
+  });
 });
 
 describe('normalizeCountryName', () => {

@@ -524,17 +524,19 @@
         countryData = mergeCountryMaps(countryData, newData);
         allTimelineCoords = allTimelineCoords.concat(allCoords);
 
-        /* Restore UI state before rendering */
+        /* Restore UI state and render */
         processingEl.classList.add('hidden');
         uploadZoneEl.classList.remove('hidden');
+
+        renderResults(allTimelineCoords);
+        showImportErrors(importErrors);
+
+        /* Update upload zone text only after successful render */
         uploadZone.querySelector('h3').textContent =
           'Drop another file to add more data';
         uploadZone.querySelector('p').textContent =
           'Upload a Timeline.json or CSV to combine with existing data';
         document.getElementById('reset-data-btn').classList.remove('hidden');
-
-        renderResults(allTimelineCoords);
-        showImportErrors(importErrors);
         /* Reset file input so same file can be re-selected */
         fileInput.value = '';
       } catch (err) {

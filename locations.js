@@ -200,6 +200,7 @@ export function parseDateStr(str) {
   const yearOnly = trimmed.match(/^(\d{4})$/);
   if (yearOnly) {
     const year = parseInt(yearOnly[1], 10);
+    if (year < 100) return null;
     return new Date(Date.UTC(year, 0, 1));
   }
 
@@ -221,7 +222,12 @@ export function parseDateStr(str) {
     const day = parseInt(mdyMatch[2], 10);
     const year = parseInt(mdyMatch[3], 10);
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return new Date(Date.UTC(year, month - 1, day));
+      const d = new Date(Date.UTC(year, month - 1, day));
+      /* Verify the date didn't roll over (e.g., Feb 30 -> Mar 2) */
+      if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) {
+        return null;
+      }
+      return d;
     }
     return null;
   }
