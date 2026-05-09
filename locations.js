@@ -120,6 +120,189 @@ export function buildCountryMap(coords, worldTopo) {
   return countryMap;
 }
 
+/* Common alternative spellings/abbreviations -> canonical COUNTRY_NAMES value */
+const COUNTRY_ALIASES = {
+  'usa': 'United States of America',
+  'us': 'United States of America',
+  'united states': 'United States of America',
+  'u.s.a.': 'United States of America',
+  'u.s.': 'United States of America',
+  'america': 'United States of America',
+  'uk': 'United Kingdom',
+  'u.k.': 'United Kingdom',
+  'great britain': 'United Kingdom',
+  'britain': 'United Kingdom',
+  'england': 'United Kingdom',
+  'scotland': 'United Kingdom',
+  'wales': 'United Kingdom',
+  'northern ireland': 'United Kingdom',
+  'czech republic': 'Czechia',
+  'ivory coast': "Cote d'Ivoire",
+  'côte d\'ivoire': "Cote d'Ivoire",
+  'burma': 'Myanmar',
+  'holland': 'Netherlands',
+  'the netherlands': 'Netherlands',
+  'republic of ireland': 'Ireland',
+  'uae': 'United Arab Emirates',
+  'drc': 'Dem. Rep. Congo',
+  'democratic republic of congo': 'Dem. Rep. Congo',
+  'democratic republic of the congo': 'Dem. Rep. Congo',
+  'republic of congo': 'Congo',
+  'east timor': 'Timor-Leste',
+  'cape verde': 'Cabo Verde',
+  'swaziland': 'Eswatini',
+  'macedonia': 'North Macedonia',
+  'russia': 'Russia',
+  'russian federation': 'Russia',
+  'south korea': 'South Korea',
+  'north korea': 'North Korea',
+  'taiwan': 'Taiwan',
+  'palestine': 'Palestine',
+};
+
+/**
+ * Normalize a country name from user input to the canonical name used in COUNTRY_NAMES.
+ * Handles common abbreviations, alternative spellings, and case differences.
+ * Returns null for empty/falsy input.
+ */
+export function normalizeCountryName(name) {
+  if (!name || typeof name !== 'string') return null;
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+
+  /* Check aliases first (case-insensitive) */
+  const lower = trimmed.toLowerCase();
+  if (COUNTRY_ALIASES[lower]) {
+    return COUNTRY_ALIASES[lower];
+  }
+
+  /* Check if it's already a canonical name (case-insensitive match) */
+  const canonicalNames = Object.values(COUNTRY_NAMES);
+  const found = canonicalNames.find(
+    cn => cn.toLowerCase() === lower
+  );
+  if (found) return found;
+
+  /* Return as-is (trimmed) for unknown names */
+  return trimmed;
+}
+
+/**
+ * Parse a CSV string with Date and Country columns into a country map.
+ * Returns { countryMap: Map, errors: string[] }.
+ * The column matching is case-insensitive.
+ */
+export function parseCsvToCountryMap(csv) {
+  const errors = [];
+  const countryMap = new Map();
+
+  if (!csv || typeof csv !== 'string' || !csv.trim()) {
+    errors.push('CSV file is empty.');
+    return { countryMap, errors };
+  }
+
+  const lines = csv.trim().split(/\r?\n/);
+  if (lines.length < 2) {
+    errors.push('CSV file has no data rows.');
+    return { countryMap, errors };
+  }
+
+  /* Parse header to find column indices */
+  const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const dateIdx = header.findIndex(
+    h => h === 'date' || h === 'timestamp' || h === 'time'
+  );
+  const countryIdx = header.findIndex(
+    h => h === 'country' || h === 'country_name'
+  );
+
+  if (dateIdx === -1) {
+    errors.push(
+      'CSV missing required "Date" column. '
+      + 'Expected a column named Date, Timestamp, or Time.'
+    );
+    return { countryMap, errors };
+  }
+  if (countryIdx === -1) {
+    errors.push(
+      'CSV missing required "Country" column. '
+      + 'Expected a column named Country or Country_Name.'
+    );
+    return { countryMap, errors };
+  }
+
+  /* Parse data rows */
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row.trim()) continue;
+
+    const cols = row.split(',').map(c => c.trim());
+    const dateStr = cols[dateIdx];
+    const countryStr = cols[countryIdx];
+
+    if (!countryStr) {
+      errors.push(`Row ${i + 1}: missing country value.`);
+      continue;
+    }
+
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      errors.push(`Row ${i + 1}: invalid date "${dateStr}".`);
+      continue;
+    }
+
+    const country = normalizeCountryName(countryStr);
+    if (!country) {
+      errors.push(`Row ${i + 1}: empty country after normalization.`);
+      continue;
+    }
+
+    if (countryMap.has(country)) {
+      const entry = countryMap.get(country);
+      entry.visitCount++;
+      if (date < entry.firstVisit) entry.firstVisit = date;
+      if (date > entry.lastVisit) entry.lastVisit = date;
+    } else {
+      countryMap.set(country, {
+        firstVisit: date,
+        lastVisit: date,
+        visitCount: 1,
+      });
+    }
+  }
+
+  return { countryMap, errors };
+}
+
+/**
+ * Merge two country maps into one. Combines visit counts and expands date ranges.
+ * Returns a new Map (does not mutate inputs).
+ */
+export function mergeCountryMaps(mapA, mapB) {
+  const merged = new Map();
+
+  for (const [country, entry] of mapA) {
+    merged.set(country, { ...entry });
+  }
+
+  for (const [country, entry] of mapB) {
+    if (merged.has(country)) {
+      const existing = merged.get(country);
+      existing.visitCount += entry.visitCount;
+      if (entry.firstVisit < existing.firstVisit) {
+        existing.firstVisit = entry.firstVisit;
+      }
+      if (entry.lastVisit > existing.lastVisit) {
+        existing.lastVisit = entry.lastVisit;
+      }
+    } else {
+      merged.set(country, { ...entry });
+    }
+  }
+
+  return merged;
+}
+
 /**
  * Parse a Google Timeline latLng string like "51.5074°, -0.1278°"
  * into { lat, lng } or null if unparseable.

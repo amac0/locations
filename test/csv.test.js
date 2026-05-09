@@ -124,7 +124,7 @@ describe('parseCsvToCountryMap', () => {
     const { countryMap, errors } = parseCsvToCountryMap(csv);
     assert.strictEqual(countryMap.size, 1);
     assert.strictEqual(errors.length, 1);
-    assert.ok(errors[0].includes('row 3'));
+    assert.ok(errors[0].includes('Row 3'));
   });
 
   it('reports errors for rows with invalid date', () => {
@@ -133,7 +133,7 @@ describe('parseCsvToCountryMap', () => {
     const { countryMap, errors } = parseCsvToCountryMap(csv);
     assert.strictEqual(countryMap.size, 0);
     assert.strictEqual(errors.length, 1);
-    assert.ok(errors[0].includes('row 2'));
+    assert.ok(errors[0].includes('Row 2'));
   });
 
   it('finds Date and Country columns case-insensitively', () => {
