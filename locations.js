@@ -399,3 +399,194 @@ export function extractCoordinates(data) {
 
   return coords;
 }
+
+/* US state abbreviation -> full name */
+const US_STATE_ABBREVS = {
+  'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas',
+  'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware',
+  'FL': 'Florida', 'GA': 'Georgia', 'HI': 'Hawaii', 'ID': 'Idaho',
+  'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa', 'KS': 'Kansas',
+  'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+  'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi',
+  'MO': 'Missouri', 'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada',
+  'NH': 'New Hampshire', 'NJ': 'New Jersey', 'NM': 'New Mexico', 'NY': 'New York',
+  'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio', 'OK': 'Oklahoma',
+  'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+  'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah',
+  'VT': 'Vermont', 'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia',
+  'WI': 'Wisconsin', 'WY': 'Wyoming', 'DC': 'District of Columbia',
+  'PR': 'Puerto Rico', 'GU': 'Guam', 'VI': 'Virgin Islands',
+  'AS': 'American Samoa', 'MP': 'Northern Mariana Islands',
+};
+
+/* Canadian province abbreviation -> full name */
+const CA_PROVINCE_ABBREVS = {
+  'AB': 'Alberta', 'BC': 'British Columbia', 'MB': 'Manitoba',
+  'NB': 'New Brunswick', 'NL': 'Newfoundland and Labrador',
+  'NS': 'Nova Scotia', 'NT': 'Northwest Territories', 'NU': 'Nunavut',
+  'ON': 'Ontario', 'PE': 'Prince Edward Island', 'QC': 'Quebec',
+  'SK': 'Saskatchewan', 'YT': 'Yukon Territory',
+};
+
+/* Common alternative spellings for states/provinces */
+const STATE_ALIASES = {
+  'washington dc': 'District of Columbia',
+  'washington d.c.': 'District of Columbia',
+  'washington, dc': 'District of Columbia',
+  'washington, d.c.': 'District of Columbia',
+  'd.c.': 'District of Columbia',
+  'yukon': 'Yukon Territory',
+  'pei': 'Prince Edward Island',
+  'nfld': 'Newfoundland and Labrador',
+  'newfoundland': 'Newfoundland and Labrador',
+};
+
+/**
+ * Extract a US state or Canadian province name from a State/Zip field.
+ * Handles formats like "CA 94128", "DC 20008", "BC V6Z 1S2", "NY",
+ * "California", "Washington DC", etc.
+ * Returns the full state/province name or null if not recognized.
+ */
+export function extractStateFromField(str) {
+  if (!str || typeof str !== 'string') return null;
+  const trimmed = str.trim();
+  if (!trimmed) return null;
+
+  /* Check aliases first (case-insensitive) */
+  const lower = trimmed.toLowerCase();
+  if (STATE_ALIASES[lower]) return STATE_ALIASES[lower];
+
+  /* Check if it's a full state/province name */
+  const allNames = [
+    ...Object.values(US_STATE_ABBREVS),
+    ...Object.values(CA_PROVINCE_ABBREVS),
+  ];
+  const nameMatch = allNames.find(n => n.toLowerCase() === lower);
+  if (nameMatch) return nameMatch;
+
+  /* Try to extract 2-letter code from the beginning */
+  const abbrevMatch = trimmed.match(/^([A-Z]{2})(?:\s|$)/);
+  if (abbrevMatch) {
+    const code = abbrevMatch[1];
+    if (US_STATE_ABBREVS[code]) return US_STATE_ABBREVS[code];
+    if (CA_PROVINCE_ABBREVS[code]) return CA_PROVINCE_ABBREVS[code];
+  }
+
+  return null;
+}
+
+/**
+ * Look up the US state or Canadian province for a lat/lng coordinate.
+ * Returns the state/province name or null if not in US/Canada.
+ */
+export function lookupState(lat, lng, usTopo, caTopo) {
+  /* Check US states */
+  const usFeatures = topojsonClient.feature(usTopo, usTopo.objects.states);
+  for (const feature of usFeatures.features) {
+    if (geoContains(feature, [lng, lat])) {
+      return feature.properties?.name || null;
+    }
+  }
+
+  /* Check Canadian provinces */
+  const caFeatures = topojsonClient.feature(caTopo, caTopo.objects.provinces);
+  for (const feature of caFeatures.features) {
+    if (geoContains(feature, [lng, lat])) {
+      return feature.properties?.name || null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Build a state/province visit map from coordinates (like buildCountryMap but for states).
+ * Skips coordinates outside US/Canada.
+ */
+export function buildStateMap(coords, usTopo, caTopo) {
+  const stateMap = new Map();
+
+  for (const coord of coords) {
+    const state = lookupState(coord.lat, coord.lng, usTopo, caTopo);
+    if (!state) continue;
+
+    const time = new Date(coord.time);
+    if (stateMap.has(state)) {
+      const entry = stateMap.get(state);
+      entry.visitCount++;
+      if (time < entry.firstVisit) entry.firstVisit = time;
+      if (time > entry.lastVisit) entry.lastVisit = time;
+    } else {
+      stateMap.set(state, {
+        firstVisit: time,
+        lastVisit: time,
+        visitCount: 1,
+      });
+    }
+  }
+
+  return stateMap;
+}
+
+/**
+ * Parse a CSV string into a state/province visit map.
+ * Looks for a "State", "State/Zip", or "Province" column.
+ * Skips rows that don't have a recognizable US/CA state.
+ * Returns { stateMap: Map, errors: string[] }.
+ */
+export function parseCsvToStateMap(csv) {
+  const errors = [];
+  const stateMap = new Map();
+
+  if (!csv || typeof csv !== 'string' || !csv.trim()) {
+    return { stateMap, errors };
+  }
+
+  const lines = csv.trim().split(/\r?\n/);
+  if (lines.length < 2) return { stateMap, errors };
+
+  const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const dateIdx = header.findIndex(
+    h => h === 'date' || h === 'timestamp' || h === 'time'
+  );
+  const stateIdx = header.findIndex(
+    h => h === 'state' || h === 'state/zip' || h === 'province'
+      || h === 'state_province' || h === 'region'
+  );
+
+  if (dateIdx === -1 || stateIdx === -1) {
+    return { stateMap, errors };
+  }
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row.trim()) continue;
+
+    const cols = row.split(',').map(c => c.trim());
+    const dateStr = cols[dateIdx];
+    const stateStr = cols[stateIdx];
+
+    if (!stateStr) continue;
+
+    const date = parseDateStr(dateStr);
+    if (!date) continue;
+
+    const state = extractStateFromField(stateStr);
+    if (!state) continue;
+
+    if (stateMap.has(state)) {
+      const entry = stateMap.get(state);
+      entry.visitCount++;
+      if (date < entry.firstVisit) entry.firstVisit = date;
+      if (date > entry.lastVisit) entry.lastVisit = date;
+    } else {
+      stateMap.set(state, {
+        firstVisit: date,
+        lastVisit: date,
+        visitCount: 1,
+      });
+    }
+  }
+
+  return { stateMap, errors };
+}
