@@ -147,6 +147,40 @@
             color: var(--app-text);
         }
 
+        /* ==================== RESULTS HEADER ==================== */
+        .results-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .view-toggle {
+            display: flex;
+            border: 1px solid var(--app-border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .toggle-btn {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            color: var(--app-text-muted);
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+        .toggle-btn.active {
+            background: var(--app-primary);
+            color: #fff;
+        }
+        .toggle-btn:not(.active):hover {
+            background: var(--app-primary-light);
+        }
+
         /* ==================== MAP ==================== */
         .map-container {
             background: var(--app-card-bg);
@@ -333,7 +367,13 @@
 
         <!-- Results Section (hidden until data processed) -->
         <div id="results-section" class="hidden">
-            <div id="stats-line" class="stats-line"></div>
+            <div class="results-header">
+                <div id="stats-line" class="stats-line"></div>
+                <div class="view-toggle">
+                    <button id="view-countries" class="toggle-btn active">Countries</button>
+                    <button id="view-states" class="toggle-btn">US/CA States</button>
+                </div>
+            </div>
             <div class="map-container">
                 <div id="map"></div>
                 <div class="legend">
@@ -366,12 +406,16 @@
     // ABOUTME: Main application script for the country visit map.
     // ABOUTME: Handles file upload, data processing, and D3 map rendering.
 
-    import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES, parseCsvToCountryMap, mergeCountryMaps } from './locations.js';
+    import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES, parseCsvToCountryMap, mergeCountryMaps, buildStateMap, parseCsvToStateMap } from './locations.js';
 
     /* ==================== STATE ==================== */
     let countryData = new Map(); // Map<string, {firstVisit, lastVisit, visitCount}>
+    let stateData = new Map();   // Map<string, {firstVisit, lastVisit, visitCount}>
     let worldTopo = null;
+    let usTopo = null;
+    let caTopo = null;
     let allTimelineCoords = []; // accumulated coords from all Timeline uploads
+    let currentView = 'countries'; // 'countries' or 'states'
 
     /* ==================== UPLOAD HANDLING ==================== */
     const uploadZone = document.getElementById('upload-zone');
@@ -465,8 +509,14 @@
 
       try {
         if (!worldTopo) {
-          const resp = await fetch('world-110m.json');
-          worldTopo = await resp.json();
+          const [worldResp, usResp, caResp] = await Promise.all([
+            fetch('world-110m.json'),
+            fetch('us-states-10m.json'),
+            fetch('ca-provinces.json'),
+          ]);
+          worldTopo = await worldResp.json();
+          usTopo = await usResp.json();
+          caTopo = await caResp.json();
         }
 
         let timelineMap = new Map();
@@ -497,8 +547,10 @@
         }
 
         /* Process CSV files */
+        const csvTexts = [];
         for (const file of csvFiles) {
           const text = await file.text();
+          csvTexts.push(text);
           const { countryMap: fileMap, errors } = parseCsvToCountryMap(text);
           if (errors.length > 0) {
             importErrors.push(...errors.map(e => `${file.name}: ${e}`));
@@ -524,6 +576,17 @@
         countryData = mergeCountryMaps(countryData, newData);
         allTimelineCoords = allTimelineCoords.concat(allCoords);
 
+        /* Build state/province data from Timeline coords */
+        if (allCoords.length > 0) {
+          const timelineStateMap = buildStateMap(allCoords, usTopo, caTopo);
+          stateData = mergeCountryMaps(stateData, timelineStateMap);
+        }
+        /* Build state/province data from CSV */
+        for (const text of csvTexts) {
+          const { stateMap: fileStateMap } = parseCsvToStateMap(text);
+          stateData = mergeCountryMaps(stateData, fileStateMap);
+        }
+
         /* Restore UI state and render */
         processingEl.classList.add('hidden');
         uploadZoneEl.classList.remove('hidden');
@@ -547,25 +610,35 @@
       }
     }
 
+    /* ==================== VIEW TOGGLE ==================== */
+    document.getElementById('view-countries').addEventListener('click', () => {
+      if (currentView === 'countries') return;
+      currentView = 'countries';
+      document.getElementById('view-countries').classList.add('active');
+      document.getElementById('view-states').classList.remove('active');
+      renderResults(allTimelineCoords);
+    });
+
+    document.getElementById('view-states').addEventListener('click', () => {
+      if (currentView === 'states') return;
+      currentView = 'states';
+      document.getElementById('view-states').classList.add('active');
+      document.getElementById('view-countries').classList.remove('active');
+      renderResults(allTimelineCoords);
+    });
+
     /* ==================== RESULTS RENDERING ==================== */
     function renderResults(coords) {
       document.getElementById('results-section').classList.remove('hidden');
 
-      /* Compute date range from coords + countryData */
+      const activeData = currentView === 'countries' ? countryData : stateData;
+      const label = currentView === 'countries' ? 'countries' : 'states/provinces';
+
+      /* Compute date range from active data */
       const fmtOpts = { year: 'numeric', month: 'short' };
       let minDate, maxDate;
 
-      /* Try coords first (from Timeline.json) */
-      const times = coords
-        .map(c => new Date(c.time).getTime())
-        .filter(t => !isNaN(t));
-      if (times.length > 0) {
-        minDate = new Date(Math.min(...times));
-        maxDate = new Date(Math.max(...times));
-      }
-
-      /* Also check countryData entries (from CSV or merged) */
-      for (const entry of countryData.values()) {
+      for (const entry of activeData.values()) {
         if (!minDate || entry.firstVisit < minDate) {
           minDate = entry.firstVisit;
         }
@@ -576,7 +649,7 @@
 
       const statsLine = document.getElementById('stats-line');
       let statsHtml =
-        `<strong>${countryData.size}</strong> countries visited`;
+        `<strong>${activeData.size}</strong> ${label} visited`;
       if (minDate && maxDate) {
         statsHtml +=
           ` &middot; ${minDate.toLocaleDateString('en-US', fmtOpts)}`
@@ -595,6 +668,7 @@
 
       const width = 960;
       const height = 500;
+      const activeData = currentView === 'countries' ? countryData : stateData;
 
       const svg = d3.select(mapEl)
         .append('svg')
@@ -603,49 +677,66 @@
 
       const g = svg.append('g');
 
-      const projection = d3.geoNaturalEarth1()
-        .scale(153)
-        .translate([width / 2, height / 2]);
+      let projection, features, getName;
+
+      if (currentView === 'countries') {
+        projection = d3.geoNaturalEarth1()
+          .scale(153)
+          .translate([width / 2, height / 2]);
+        features = topojson.feature(
+          worldTopo, worldTopo.objects.countries
+        ).features;
+        getName = d => COUNTRY_NAMES[d.id];
+      } else {
+        /* US + Canada projection: Albers USA doesn't include Canada.
+           Use a conic projection centered on North America. */
+        projection = d3.geoConicConformal()
+          .rotate([95, 0])
+          .center([0, 49])
+          .parallels([29.5, 45.5])
+          .scale(500)
+          .translate([width / 2, height / 2]);
+        const usFeatures = topojson.feature(
+          usTopo, usTopo.objects.states
+        ).features;
+        const caFeatures = topojson.feature(
+          caTopo, caTopo.objects.provinces
+        ).features;
+        features = [...usFeatures, ...caFeatures];
+        getName = d => d.properties?.name || null;
+      }
 
       const path = d3.geoPath().projection(projection);
 
-      const countries = topojson.feature(
-        worldTopo, worldTopo.objects.countries
-      );
-
-      /* Color scale: years since last visit -> opacity.
-         0 years (this year) = full opacity, oldest = 0.2 opacity */
+      /* Color scale: years since last visit -> opacity */
       const now = new Date();
       let maxYears = 0;
-      for (const entry of countryData.values()) {
+      for (const entry of activeData.values()) {
         const years =
           (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
         if (years > maxYears) maxYears = years;
       }
-      /* Ensure at least 1 year range to avoid division by zero */
       if (maxYears < 1) maxYears = 1;
 
-      /* COUNTRY_NAMES imported from locations.js */
-
       g.selectAll('path')
-        .data(countries.features)
+        .data(features)
         .join('path')
         .attr('d', path)
         .attr('class', 'country')
         .attr('fill', d => {
-          const name = COUNTRY_NAMES[d.id];
-          if (!name || !countryData.has(name)) return '#e5e7eb';
-          const entry = countryData.get(name);
+          const name = getName(d);
+          if (!name || !activeData.has(name)) return '#e5e7eb';
+          const entry = activeData.get(name);
           const years =
             (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
           const opacity = 1 - (years / maxYears) * 0.8;
           return d3.color('#6366f1').copy({ opacity });
         })
         .on('mousemove', (event, d) => {
-          const name = COUNTRY_NAMES[d.id];
+          const name = getName(d);
           const tooltip = document.getElementById('tooltip');
-          if (name && countryData.has(name)) {
-            const entry = countryData.get(name);
+          if (name && activeData.has(name)) {
+            const entry = activeData.get(name);
             const fmtOpts = { year: 'numeric', month: 'short' };
             tooltip.querySelector('.country-name').textContent = name;
             tooltip.querySelector('.visit-info').textContent =
@@ -699,7 +790,11 @@
 
     function resetAll() {
       countryData = new Map();
+      stateData = new Map();
       allTimelineCoords = [];
+      currentView = 'countries';
+      document.getElementById('view-countries').classList.add('active');
+      document.getElementById('view-states').classList.remove('active');
       document.getElementById('results-section').classList.add('hidden');
       document.getElementById('import-errors').classList.add('hidden');
       /* Clean up D3 SVG and zoom listeners */
@@ -755,10 +850,11 @@
     }
 
     function exportJs() {
-      if (!countryData || !worldTopo) return;
-      /* Serialize the country visit data as plain JSON */
+      const activeData = currentView === 'countries' ? countryData : stateData;
+      if (!activeData || activeData.size === 0) return;
+      /* Serialize the active view's visit data as plain JSON */
       const visitData = {};
-      for (const [country, entry] of countryData) {
+      for (const [country, entry] of activeData) {
         visitData[country] = {
           firstVisit: entry.firstVisit.toISOString(),
           lastVisit: entry.lastVisit.toISOString(),
