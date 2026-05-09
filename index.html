@@ -373,13 +373,19 @@
                     <button id="view-countries" class="toggle-btn active">Countries</button>
                     <button id="view-states" class="toggle-btn">US/Canada States/Provinces</button>
                 </div>
+                <div class="view-toggle">
+                    <button id="color-recency" class="toggle-btn active">Recency</button>
+                    <button id="color-binary" class="toggle-btn">Visited</button>
+                </div>
             </div>
             <div class="map-container">
                 <div id="map"></div>
-                <div class="legend">
-                    <span>Recent</span>
+                <div id="legend" class="legend">
+                    <span id="legend-recency-label-recent">Recent</span>
                     <canvas id="legend-gradient" class="legend-gradient" width="120" height="12"></canvas>
-                    <span>Long ago</span>
+                    <span id="legend-recency-label-old">Long ago</span>
+                    <span class="legend-swatch" id="legend-swatch-visited" style="display:none;background:var(--app-primary)"></span>
+                    <span id="legend-binary-label" style="display:none">Visited</span>
                     <span class="legend-swatch"></span>
                     <span>Not visited</span>
                 </div>
@@ -416,6 +422,7 @@
     let caTopo = null;
     let allTimelineCoords = []; // accumulated coords from all Timeline uploads
     let currentView = 'countries'; // 'countries' or 'states'
+    let colorMode = 'recency'; // 'recency' or 'binary'
 
     /* ==================== UPLOAD HANDLING ==================== */
     const uploadZone = document.getElementById('upload-zone');
@@ -627,6 +634,22 @@
       renderResults(allTimelineCoords);
     });
 
+    document.getElementById('color-recency').addEventListener('click', () => {
+      if (colorMode === 'recency') return;
+      colorMode = 'recency';
+      document.getElementById('color-recency').classList.add('active');
+      document.getElementById('color-binary').classList.remove('active');
+      renderResults(allTimelineCoords);
+    });
+
+    document.getElementById('color-binary').addEventListener('click', () => {
+      if (colorMode === 'binary') return;
+      colorMode = 'binary';
+      document.getElementById('color-binary').classList.add('active');
+      document.getElementById('color-recency').classList.remove('active');
+      renderResults(allTimelineCoords);
+    });
+
     /* ==================== RESULTS RENDERING ==================== */
     function renderResults(coords) {
       document.getElementById('results-section').classList.remove('hidden');
@@ -708,15 +731,17 @@
 
       const path = d3.geoPath().projection(projection);
 
-      /* Color scale: years since last visit -> opacity */
+      /* Color scale setup */
       const now = new Date();
       let maxYears = 0;
-      for (const entry of activeData.values()) {
-        const years =
-          (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
-        if (years > maxYears) maxYears = years;
+      if (colorMode === 'recency') {
+        for (const entry of activeData.values()) {
+          const years =
+            (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
+          if (years > maxYears) maxYears = years;
+        }
+        if (maxYears < 1) maxYears = 1;
       }
-      if (maxYears < 1) maxYears = 1;
 
       g.selectAll('path')
         .data(features)
@@ -726,6 +751,7 @@
         .attr('fill', d => {
           const name = getName(d);
           if (!name || !activeData.has(name)) return '#e5e7eb';
+          if (colorMode === 'binary') return '#6366f1';
           const entry = activeData.get(name);
           const years =
             (now - entry.lastVisit) / (365.25 * 24 * 60 * 60 * 1000);
@@ -772,14 +798,32 @@
     /* ==================== LEGEND ==================== */
     function renderLegend() {
       const canvas = document.getElementById('legend-gradient');
-      const ctx = canvas.getContext('2d');
-      const gradient = ctx.createLinearGradient(0, 0, 120, 0);
-      gradient.addColorStop(0, 'rgba(99, 102, 241, 1)');
-      gradient.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.roundRect(0, 0, 120, 12, 3);
-      ctx.fill();
+      const isRecency = colorMode === 'recency';
+
+      /* Show/hide recency legend elements */
+      canvas.style.display = isRecency ? '' : 'none';
+      document.getElementById('legend-recency-label-recent').style.display =
+        isRecency ? '' : 'none';
+      document.getElementById('legend-recency-label-old').style.display =
+        isRecency ? '' : 'none';
+
+      /* Show/hide binary legend elements */
+      document.getElementById('legend-swatch-visited').style.display =
+        isRecency ? 'none' : '';
+      document.getElementById('legend-binary-label').style.display =
+        isRecency ? 'none' : '';
+
+      if (isRecency) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 120, 12);
+        const gradient = ctx.createLinearGradient(0, 0, 120, 0);
+        gradient.addColorStop(0, 'rgba(99, 102, 241, 1)');
+        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, 120, 12, 3);
+        ctx.fill();
+      }
     }
 
     /* ==================== EXPORT ==================== */
@@ -793,8 +837,11 @@
       stateData = new Map();
       allTimelineCoords = [];
       currentView = 'countries';
+      colorMode = 'recency';
       document.getElementById('view-countries').classList.add('active');
       document.getElementById('view-states').classList.remove('active');
+      document.getElementById('color-recency').classList.add('active');
+      document.getElementById('color-binary').classList.remove('active');
       document.getElementById('results-section').classList.add('hidden');
       document.getElementById('import-errors').classList.add('hidden');
       /* Clean up D3 SVG and zoom listeners */
