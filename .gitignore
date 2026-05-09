@@ -2,6 +2,7 @@
 Timeline.json
 Countries*.csv
 takeout-*.zip
+port.txt
 
 # Dependencies
 node_modules/
