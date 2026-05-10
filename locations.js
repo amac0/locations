@@ -294,7 +294,7 @@ export function parseCsvToCountryMap(csv) {
   }
 
   /* Parse header to find column indices */
-  const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const header = splitCsvRow(lines[0]).map(h => h.toLowerCase());
   const dateIdx = header.findIndex(
     h => h === 'date' || h === 'timestamp' || h === 'time'
   );
@@ -446,7 +446,7 @@ export function extractCsvRows(csv) {
   const lines = csv.trim().split(/\r?\n/);
   if (lines.length < 2) return rows;
 
-  const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const header = splitCsvRow(lines[0]).map(h => h.toLowerCase());
   const dateIdx = header.findIndex(
     h => h === 'date' || h === 'timestamp' || h === 'time'
   );
@@ -646,7 +646,7 @@ export function parseCsvToStateMap(csv) {
   const lines = csv.trim().split(/\r?\n/);
   if (lines.length < 2) return { stateMap, errors };
 
-  const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const header = splitCsvRow(lines[0]).map(h => h.toLowerCase());
   const dateIdx = header.findIndex(
     h => h === 'date' || h === 'timestamp' || h === 'time'
   );

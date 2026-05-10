@@ -433,6 +433,7 @@
     let currentView = 'countries'; // 'countries' or 'states'
     let colorMode = 'recency'; // 'recency' or 'binary'
     let mapTheme = 'default'; // 'default' or 'pirate'
+    let currentZoomReset = null; // function to reset zoom for current map
 
     /* ==================== UPLOAD HANDLING ==================== */
     const uploadZone = document.getElementById('upload-zone');
@@ -848,9 +849,9 @@
 
       svg.call(zoom);
 
-      document.getElementById('reset-zoom-btn').addEventListener('click', () => {
+      currentZoomReset = () => {
         svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
-      });
+      };
     }
 
     /* ==================== PIRATE THEME ==================== */
@@ -1006,9 +1007,9 @@
         .on('zoom', (event) => { g.attr('transform', event.transform); });
       svg.call(zoom);
 
-      document.getElementById('reset-zoom-btn').addEventListener('click', () => {
+      currentZoomReset = () => {
         svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
-      });
+      };
     }
 
     /* ==================== LEGEND ==================== */
@@ -1024,8 +1025,9 @@
         isRecency ? '' : 'none';
 
       /* Show/hide binary legend elements */
-      document.getElementById('legend-swatch-visited').style.display =
-        isRecency ? 'none' : '';
+      const visitedSwatch = document.getElementById('legend-swatch-visited');
+      visitedSwatch.style.display = isRecency ? 'none' : '';
+      visitedSwatch.style.background = mapTheme === 'pirate' ? '#c49a40' : '#8b1a2b';
       document.getElementById('legend-binary-label').style.display =
         isRecency ? 'none' : '';
 
@@ -1033,8 +1035,13 @@
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, 120, 12);
         const gradient = ctx.createLinearGradient(0, 0, 120, 0);
-        gradient.addColorStop(0, 'rgba(110, 20, 35, 1)');
-        gradient.addColorStop(1, 'rgba(110, 20, 35, 0.2)');
+        if (mapTheme === 'pirate') {
+          gradient.addColorStop(0, 'rgba(196, 154, 64, 0.8)');
+          gradient.addColorStop(1, 'rgba(196, 154, 64, 0.3)');
+        } else {
+          gradient.addColorStop(0, 'rgba(110, 20, 35, 1)');
+          gradient.addColorStop(1, 'rgba(110, 20, 35, 0.2)');
+        }
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.roundRect(0, 0, 120, 12, 3);
@@ -1043,6 +1050,9 @@
     }
 
     /* ==================== EXPORT ==================== */
+    document.getElementById('reset-zoom-btn').addEventListener('click', () => {
+      if (currentZoomReset) currentZoomReset();
+    });
     document.getElementById('export-svg-btn').addEventListener('click', exportSvg);
     document.getElementById('export-png-btn').addEventListener('click', exportPng);
     document.getElementById('export-js-btn').addEventListener('click', exportJs);
