@@ -1318,7 +1318,15 @@
         const prompt = AI_PROMPTS[theme];
         if (!prompt) return;
 
-        /* Get the current SVG */
+        /* Copy prompt to clipboard, download SVG separately */
+        function copyDone() {
+          const msg = document.getElementById('ai-prompt-copied');
+          msg.classList.remove('hidden');
+          msg.textContent = `"${theme}" prompt copied! SVG downloaded — attach it to your AI tool.`;
+          setTimeout(() => msg.classList.add('hidden'), 5000);
+        }
+
+        /* Download the SVG file */
         const svgEl = document.querySelector('#map svg');
         if (!svgEl) return;
         const clone = svgEl.cloneNode(true);
@@ -1326,23 +1334,16 @@
         const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
         style.textContent = '.country { stroke: #000; stroke-width: 0.4; }';
         clone.insertBefore(style, clone.firstChild);
-        const svgText = clone.outerHTML;
+        const svgBlob = new Blob([clone.outerHTML], { type: 'image/svg+xml' });
+        downloadBlob(svgBlob, 'country-visit-map.svg');
 
-        /* Combine prompt + SVG */
-        const fullPrompt = prompt + '\n\nHere is the SVG:\n\n```svg\n' + svgText + '\n```';
-
-        /* Copy to clipboard (with fallback for non-HTTPS) */
-        function copyDone() {
-          const msg = document.getElementById('ai-prompt-copied');
-          msg.classList.remove('hidden');
-          msg.textContent = `"${theme}" prompt + SVG copied to clipboard!`;
-          setTimeout(() => msg.classList.add('hidden'), 3000);
-        }
+        /* Copy just the prompt to clipboard */
+        const promptText = prompt + '\n\n(Attach the downloaded SVG file to this prompt.)';
         if (navigator.clipboard && window.isSecureContext) {
-          navigator.clipboard.writeText(fullPrompt).then(copyDone);
+          navigator.clipboard.writeText(promptText).then(copyDone);
         } else {
           const ta = document.createElement('textarea');
-          ta.value = fullPrompt;
+          ta.value = promptText;
           ta.style.position = 'fixed';
           ta.style.left = '-9999px';
           document.body.appendChild(ta);
