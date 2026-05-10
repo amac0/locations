@@ -1331,13 +1331,26 @@
         /* Combine prompt + SVG */
         const fullPrompt = prompt + '\n\nHere is the SVG:\n\n```svg\n' + svgText + '\n```';
 
-        /* Copy to clipboard */
-        navigator.clipboard.writeText(fullPrompt).then(() => {
+        /* Copy to clipboard (with fallback for non-HTTPS) */
+        function copyDone() {
           const msg = document.getElementById('ai-prompt-copied');
           msg.classList.remove('hidden');
           msg.textContent = `"${theme}" prompt + SVG copied to clipboard!`;
           setTimeout(() => msg.classList.add('hidden'), 3000);
-        });
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(fullPrompt).then(copyDone);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = fullPrompt;
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          copyDone();
+        }
       });
     });
 
