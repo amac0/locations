@@ -268,6 +268,96 @@
             background: var(--app-primary-light);
         }
 
+        /* ==================== CITY CHECKLIST ==================== */
+        .city-checklist-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 2rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .city-checklist-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+        .city-progress-card {
+            margin-bottom: 1rem;
+            padding: 1.25rem;
+        }
+        .city-progress-bar-wrap {
+            height: 8px;
+            background: var(--app-border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        .city-progress-fill {
+            height: 100%;
+            background: var(--app-primary);
+            border-radius: 4px;
+            transition: width 0.4s ease;
+            width: 0%;
+        }
+        .city-progress-text {
+            font-size: 0.875rem;
+            color: var(--app-text-muted);
+        }
+        .city-progress-text strong {
+            color: var(--app-text);
+        }
+        .city-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 0.5rem;
+        }
+        .city-card {
+            background: var(--app-card-bg);
+            border-radius: 8px;
+            padding: 0.625rem 0.75rem;
+            box-shadow: var(--app-shadow);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
+            border-left: 3px solid var(--app-border);
+        }
+        .city-card.visited {
+            border-left-color: var(--app-primary);
+        }
+        .city-card .city-check {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid var(--app-border);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .city-card.visited .city-check {
+            background: var(--app-primary);
+            border-color: var(--app-primary);
+            color: white;
+            font-size: 10px;
+        }
+        .city-card .city-info {
+            min-width: 0;
+        }
+        .city-card .city-name {
+            font-weight: 600;
+            color: var(--app-text);
+        }
+        .city-card.visited .city-name {
+            color: var(--app-primary);
+        }
+        .city-card .city-country {
+            font-size: 0.7rem;
+            color: var(--app-text-muted);
+        }
+
         /* ==================== IMPORT ERRORS ==================== */
         .import-errors {
             margin-top: 1rem;
@@ -406,6 +496,24 @@
                 <div id="import-errors" class="import-errors hidden"></div>
             </div>
         </div>
+
+        <!-- City Checklist Section -->
+        <div id="city-section" class="hidden">
+            <div class="city-checklist-header">
+                <h2 class="city-checklist-title">City Checklist</h2>
+                <div class="view-toggle">
+                    <button id="list-top50" class="toggle-btn active">Top 50 Largest</button>
+                    <button id="list-unesco" class="toggle-btn">UNESCO Heritage</button>
+                </div>
+            </div>
+            <div class="city-progress-card card">
+                <div class="city-progress-bar-wrap">
+                    <div id="city-progress-fill" class="city-progress-fill"></div>
+                </div>
+                <div id="city-progress-text" class="city-progress-text"></div>
+            </div>
+            <div id="city-grid" class="city-grid"></div>
+        </div>
     </main>
 
     <!-- Tooltip -->
@@ -421,6 +529,7 @@
     // ABOUTME: Handles file upload, data processing, and D3 map rendering.
 
     import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES, parseCsvToCountryMap, mergeCountryMaps, buildStateMap, parseCsvToStateMap, extractCsvRows, lookupState, normalizeCountryName } from './locations.js';
+    import { CITY_LISTS, matchCityVisits } from './city-lists.js';
 
     /* ==================== STATE ==================== */
     let countryData = new Map(); // Map<string, {firstVisit, lastVisit, visitCount}>
@@ -727,6 +836,90 @@
 
       renderMap();
       renderLegend();
+      renderCityChecklist();
+    }
+
+    /* ==================== CITY CHECKLIST ==================== */
+    let activeCityList = 'top50';
+
+    document.getElementById('list-top50').addEventListener('click', () => {
+      if (activeCityList === 'top50') return;
+      activeCityList = 'top50';
+      document.getElementById('list-top50').classList.add('active');
+      document.getElementById('list-unesco').classList.remove('active');
+      renderCityChecklist();
+    });
+
+    document.getElementById('list-unesco').addEventListener('click', () => {
+      if (activeCityList === 'unesco') return;
+      activeCityList = 'unesco';
+      document.getElementById('list-unesco').classList.add('active');
+      document.getElementById('list-top50').classList.remove('active');
+      renderCityChecklist();
+    });
+
+    function renderCityChecklist() {
+      const section = document.getElementById('city-section');
+      if (countryData.size === 0) {
+        section.classList.add('hidden');
+        return;
+      }
+      section.classList.remove('hidden');
+
+      const listData = CITY_LISTS[activeCityList];
+      const visitedCities = matchCityVisits(
+        listData.cities, visitRows, countryData
+      );
+
+      const total = listData.cities.length;
+      const visited = visitedCities.size;
+      const pct = Math.round((visited / total) * 100);
+
+      /* Progress bar */
+      document.getElementById('city-progress-fill').style.width = pct + '%';
+      document.getElementById('city-progress-text').innerHTML =
+        `<strong>${visited}</strong> of <strong>${total}</strong> `
+        + `${listData.name} visited (${pct}%)`;
+
+      /* City grid */
+      const grid = document.getElementById('city-grid');
+      grid.innerHTML = '';
+
+      /* Show visited first, then unvisited */
+      const sorted = [...listData.cities].sort((a, b) => {
+        const aV = visitedCities.has(a.name) ? 0 : 1;
+        const bV = visitedCities.has(b.name) ? 0 : 1;
+        if (aV !== bV) return aV - bV;
+        return a.name.localeCompare(b.name);
+      });
+
+      for (const city of sorted) {
+        const isVisited = visitedCities.has(city.name);
+        const card = document.createElement('div');
+        card.className = 'city-card' + (isVisited ? ' visited' : '');
+
+        const check = document.createElement('div');
+        check.className = 'city-check';
+        if (isVisited) check.textContent = '\u2713';
+
+        const info = document.createElement('div');
+        info.className = 'city-info';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'city-name';
+        nameEl.textContent = city.name;
+
+        const countryEl = document.createElement('div');
+        countryEl.className = 'city-country';
+        countryEl.textContent = city.country
+          + (city.year ? ` \u00B7 UNESCO ${city.year}` : '');
+
+        info.appendChild(nameEl);
+        info.appendChild(countryEl);
+        card.appendChild(check);
+        card.appendChild(info);
+        grid.appendChild(card);
+      }
     }
 
     /* ==================== MAP RENDERING ==================== */
@@ -1087,6 +1280,10 @@
       uploadZone.querySelector('p').textContent =
         'Or click to select files (you can upload both to combine them)';
       document.getElementById('reset-data-btn').classList.add('hidden');
+      document.getElementById('city-section').classList.add('hidden');
+      activeCityList = 'top50';
+      document.getElementById('list-top50').classList.add('active');
+      document.getElementById('list-unesco').classList.remove('active');
       renderLegend();
     }
 
