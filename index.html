@@ -529,7 +529,7 @@
     // ABOUTME: Handles file upload, data processing, and D3 map rendering.
 
     import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES, parseCsvToCountryMap, mergeCountryMaps, buildStateMap, parseCsvToStateMap, extractCsvRows, lookupState, normalizeCountryName } from './locations.js';
-    import { CITY_LISTS, matchCityVisits } from './city-lists.js';
+    import { CITY_LISTS, matchCityVisits, haversineKm } from './city-lists.js';
 
     /* ==================== STATE ==================== */
     let countryData = new Map(); // Map<string, {firstVisit, lastVisit, visitCount}>
@@ -840,35 +840,51 @@
     }
 
     /* ==================== CITY CHECKLIST ==================== */
-    let activeCityList = 'top50';
+    let activeCityListType = 'top50'; // 'top50' or 'unesco'
 
     document.getElementById('list-top50').addEventListener('click', () => {
-      if (activeCityList === 'top50') return;
-      activeCityList = 'top50';
+      if (activeCityListType === 'top50') return;
+      activeCityListType = 'top50';
       document.getElementById('list-top50').classList.add('active');
       document.getElementById('list-unesco').classList.remove('active');
       renderCityChecklist();
     });
 
     document.getElementById('list-unesco').addEventListener('click', () => {
-      if (activeCityList === 'unesco') return;
-      activeCityList = 'unesco';
+      if (activeCityListType === 'unesco') return;
+      activeCityListType = 'unesco';
       document.getElementById('list-unesco').classList.add('active');
       document.getElementById('list-top50').classList.remove('active');
       renderCityChecklist();
     });
 
+    /* Get the correct city list key based on view and list type */
+    function getCityListKey() {
+      if (currentView === 'states') {
+        return activeCityListType === 'top50' ? 'usca_top50' : 'usca_unesco';
+      }
+      return activeCityListType;
+    }
+
     function renderCityChecklist() {
       const section = document.getElementById('city-section');
-      if (countryData.size === 0) {
+      if (countryData.size === 0 && stateData.size === 0) {
         section.classList.add('hidden');
         return;
       }
       section.classList.remove('hidden');
 
-      const listData = CITY_LISTS[activeCityList];
+      /* Update toggle labels based on view */
+      const isUSCA = currentView === 'states';
+      document.getElementById('list-top50').textContent =
+        isUSCA ? 'Top 50 US/Canada' : 'Top 50 Largest';
+      document.getElementById('list-unesco').textContent =
+        isUSCA ? 'US/CA UNESCO' : 'UNESCO Heritage';
+
+      const listKey = getCityListKey();
+      const listData = CITY_LISTS[listKey];
       const visitedCities = matchCityVisits(
-        listData.cities, visitRows, countryData
+        listData.cities, visitRows, allTimelineCoords, countryData
       );
 
       const total = listData.cities.length;
@@ -911,8 +927,10 @@
 
         const countryEl = document.createElement('div');
         countryEl.className = 'city-country';
-        countryEl.textContent = city.country
-          + (city.year ? ` \u00B7 UNESCO ${city.year}` : '');
+        let subtitle = city.state || city.country;
+        if (city.year) subtitle += ` \u00B7 UNESCO ${city.year}`;
+        if (city.site) subtitle += ` \u00B7 ${city.site}`;
+        countryEl.textContent = subtitle;
 
         info.appendChild(nameEl);
         info.appendChild(countryEl);
