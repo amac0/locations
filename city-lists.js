@@ -35,15 +35,18 @@ export function matchCityVisits(cityList, visitRows, coords, countryData) {
   for (const city of cityList) {
     const cityLower = city.name.toLowerCase();
 
-    /* Match 1: direct city name match from CSV */
+    /* Match 1: exact city name match from CSV (case-insensitive) */
     if (cityNamesFromRows.has(cityLower)) {
       visitedCities.add(city.name);
       continue;
     }
 
-    /* Match 1b: substring match (e.g., "New York" in "New York City") */
+    /* Match 1b: match "New York City" vs "New York" — only if one is
+       a prefix of the other with a word boundary (space or end) */
     for (const rowCity of cityNamesFromRows) {
-      if (rowCity.includes(cityLower) || cityLower.includes(rowCity)) {
+      if (rowCity === cityLower) continue; // already checked
+      if (rowCity.startsWith(cityLower + ' ')
+        || cityLower.startsWith(rowCity + ' ')) {
         visitedCities.add(city.name);
         break;
       }
