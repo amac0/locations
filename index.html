@@ -504,6 +504,7 @@
                 <div class="view-toggle">
                     <button id="list-top50" class="toggle-btn active">Top 50 Largest</button>
                     <button id="list-unesco" class="toggle-btn">UNESCO Heritage</button>
+                    <button id="list-capitals" class="toggle-btn">Capitals</button>
                 </div>
             </div>
             <div class="city-progress-card card">
@@ -840,28 +841,29 @@
     }
 
     /* ==================== CITY CHECKLIST ==================== */
-    let activeCityListType = 'top50'; // 'top50' or 'unesco'
+    let activeCityListType = 'top50'; // 'top50', 'unesco', or 'capitals'
+    const cityListBtns = ['list-top50', 'list-unesco', 'list-capitals'];
 
-    document.getElementById('list-top50').addEventListener('click', () => {
-      if (activeCityListType === 'top50') return;
-      activeCityListType = 'top50';
-      document.getElementById('list-top50').classList.add('active');
-      document.getElementById('list-unesco').classList.remove('active');
+    function switchCityList(type) {
+      if (activeCityListType === type) return;
+      activeCityListType = type;
+      cityListBtns.forEach(id => {
+        document.getElementById(id).classList.remove('active');
+      });
+      document.getElementById('list-' + type).classList.add('active');
       renderCityChecklist();
-    });
+    }
 
-    document.getElementById('list-unesco').addEventListener('click', () => {
-      if (activeCityListType === 'unesco') return;
-      activeCityListType = 'unesco';
-      document.getElementById('list-unesco').classList.add('active');
-      document.getElementById('list-top50').classList.remove('active');
-      renderCityChecklist();
-    });
+    document.getElementById('list-top50').addEventListener('click', () => switchCityList('top50'));
+    document.getElementById('list-unesco').addEventListener('click', () => switchCityList('unesco'));
+    document.getElementById('list-capitals').addEventListener('click', () => switchCityList('capitals'));
 
     /* Get the correct city list key based on view and list type */
     function getCityListKey() {
       if (currentView === 'states') {
-        return activeCityListType === 'top50' ? 'usca_top50' : 'usca_unesco';
+        if (activeCityListType === 'top50') return 'usca_top50';
+        if (activeCityListType === 'unesco') return 'usca_unesco';
+        return 'usca_capitals';
       }
       return activeCityListType;
     }
@@ -880,6 +882,8 @@
         isUSCA ? 'Top 50 US/Canada' : 'Top 50 Largest';
       document.getElementById('list-unesco').textContent =
         isUSCA ? 'US/CA UNESCO' : 'UNESCO Heritage';
+      document.getElementById('list-capitals').textContent =
+        isUSCA ? 'State/Province Capitals' : 'Country Capitals';
 
       const listKey = getCityListKey();
       const listData = CITY_LISTS[listKey];
@@ -1299,9 +1303,9 @@
         'Or click to select files (you can upload both to combine them)';
       document.getElementById('reset-data-btn').classList.add('hidden');
       document.getElementById('city-section').classList.add('hidden');
-      activeCityList = 'top50';
+      activeCityListType = 'top50';
+      cityListBtns.forEach(id => document.getElementById(id).classList.remove('active'));
       document.getElementById('list-top50').classList.add('active');
-      document.getElementById('list-unesco').classList.remove('active');
       renderLegend();
     }
 

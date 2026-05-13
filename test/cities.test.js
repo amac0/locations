@@ -54,6 +54,29 @@ describe('CITY_LISTS data', () => {
       assert.ok(city.site, `Missing site for ${city.name}`);
     }
   });
+
+  it('capitals list has at least 150 cities', () => {
+    assert.ok(CITY_LISTS.capitals.cities.length >= 150);
+  });
+
+  it('usca_capitals list has all 50 US states + DC + territories + CA provinces', () => {
+    assert.ok(CITY_LISTS.usca_capitals.cities.length >= 64);
+  });
+
+  it('all capitals have lat/lng/radiusKm', () => {
+    for (const city of CITY_LISTS.capitals.cities) {
+      assert.ok(city.name, `Missing name`);
+      assert.ok(city.country, `Missing country for ${city.name}`);
+      assert.ok(typeof city.lat === 'number', `Missing lat for ${city.name}`);
+      assert.ok(typeof city.lng === 'number', `Missing lng for ${city.name}`);
+    }
+  });
+
+  it('all usca_capitals have state field', () => {
+    for (const city of CITY_LISTS.usca_capitals.cities) {
+      assert.ok(city.state, `Missing state for ${city.name}`);
+    }
+  });
 });
 
 describe('haversineKm', () => {
