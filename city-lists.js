@@ -26,32 +26,52 @@ export function haversineKm(lat1, lng1, lat2, lng2) {
 export function matchCityVisits(cityList, visitRows, coords, countryData) {
   const visitedCities = new Set();
 
-  /* Build set of city names from CSV visit rows (case-insensitive) */
-  const cityNamesFromRows = new Set();
+  /* Build list of {city, country, state} from visit rows for matching */
+  const rowEntries = [];
   for (const row of visitRows) {
-    if (row.city) cityNamesFromRows.add(row.city.toLowerCase());
+    if (row.city) {
+      rowEntries.push({
+        city: row.city.toLowerCase(),
+        country: (row.country || '').toLowerCase(),
+        state: (row.state || '').toLowerCase(),
+      });
+    }
   }
 
   for (const city of cityList) {
     const cityLower = city.name.toLowerCase();
+    const cityCountry = (city.country || '').toLowerCase();
+    const cityState = (city.state || '').toLowerCase();
 
-    /* Match 1: exact city name match from CSV (case-insensitive) */
-    if (cityNamesFromRows.has(cityLower)) {
-      visitedCities.add(city.name);
-      continue;
-    }
+    /* Match 1: exact city name + location match from CSV.
+       Name must match AND either country or state must also match
+       to avoid same-name-different-place false positives
+       (e.g., Carlsbad CA vs Carlsbad NM, Austin QC vs Austin TX). */
+    let nameMatched = false;
+    for (const row of rowEntries) {
+      const nameMatch = row.city === cityLower
+        || row.city.startsWith(cityLower + ' ')
+        || cityLower.startsWith(row.city + ' ');
+      if (!nameMatch) continue;
 
-    /* Match 1b: match "New York City" vs "New York" — only if one is
-       a prefix of the other with a word boundary (space or end) */
-    for (const rowCity of cityNamesFromRows) {
-      if (rowCity === cityLower) continue; // already checked
-      if (rowCity.startsWith(cityLower + ' ')
-        || cityLower.startsWith(rowCity + ' ')) {
+      /* Check location context to avoid same-name-different-place.
+         If the list city has a state, require state match.
+         Otherwise fall back to country match. */
+      let locationMatch = false;
+      if (cityState) {
+        locationMatch = row.state.includes(cityState);
+      } else if (cityCountry) {
+        locationMatch = row.country.includes(cityCountry);
+      } else {
+        locationMatch = true;
+      }
+      if (locationMatch) {
         visitedCities.add(city.name);
+        nameMatched = true;
         break;
       }
     }
-    if (visitedCities.has(city.name)) continue;
+    if (nameMatched) continue;
 
     /* Match 2: coordinate proximity from Timeline data */
     if (city.lat != null && city.lng != null && city.radiusKm) {
