@@ -15,10 +15,11 @@ export function haversineKm(lat1, lng1, lat2, lng2) {
 }
 
 /**
- * Create a unique key for a city to handle duplicate names (e.g., Cuenca Spain vs Ecuador).
+ * Create a unique key for a city to handle duplicate names.
+ * Includes state to disambiguate Portland OR vs Portland ME, etc.
  */
 export function cityKey(city) {
-  return city.name + '|' + (city.country || '');
+  return city.name + '|' + (city.state || '') + '|' + (city.country || '');
 }
 
 /**
@@ -28,7 +29,7 @@ export function cityKey(city) {
  * @param {Array} visitRows - raw visit rows from CSV (have city field)
  * @param {Array} coords - lat/lng coordinates from Timeline.json
  * @param {Map} countryData - country visit map (reserved for future use)
- * @returns {Set<string>} set of visited city names
+ * @returns {Set<string>} set of visited city keys (name|state|country via cityKey())
  */
 export function matchCityVisits(cityList, visitRows, coords, countryData) {
   const visitedCities = new Set();

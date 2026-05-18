@@ -243,6 +243,19 @@ describe('matchCityVisits', () => {
     assert.ok(!visited.has(cityKey(list[1])), 'Cuenca Ecuador should NOT match');
   });
 
+  it('disambiguates same name, same country, different state (Portland OR vs ME)', () => {
+    const list = [
+      { name: 'Portland', state: 'Oregon', country: 'United States of America', lat: 45.51, lng: -122.68, radiusKm: 12 },
+      { name: 'Portland', state: 'Maine', country: 'United States of America', lat: 43.66, lng: -70.26, radiusKm: 10 },
+    ];
+    const visitRows = [
+      { date: '2025-01-01', city: 'Portland', state: 'Oregon', country: 'United States of America' },
+    ];
+    const visited = matchCityVisits(list, visitRows, [], new Map());
+    assert.ok(visited.has(cityKey(list[0])), 'Portland OR should match');
+    assert.ok(!visited.has(cityKey(list[1])), 'Portland ME should NOT match');
+  });
+
   it('matches city without state/country data (fallback)', () => {
     const list = [
       { name: 'Timbuktu', lat: 16.77, lng: -3.01, radiusKm: 8 },
