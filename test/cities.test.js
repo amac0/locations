@@ -147,4 +147,81 @@ describe('matchCityVisits', () => {
     const visited = matchCityVisits(sampleList, [], [], new Map());
     assert.strictEqual(visited.size, 0);
   });
+
+  it('matches "New York" to "New York City" via prefix', () => {
+    const list = [
+      { name: 'New York City', country: 'United States of America', lat: 40.7128, lng: -74.006, radiusKm: 20 },
+    ];
+    const visitRows = [
+      { date: '2025-01-01', city: 'New York', state: 'New York', country: 'United States of America' },
+    ];
+    const visited = matchCityVisits(list, visitRows, [], new Map());
+    assert.ok(visited.has('New York City'));
+  });
+
+  it('does NOT match "Porto" to "Portola Valley" (not a prefix)', () => {
+    const list = [
+      { name: 'Porto', country: 'Portugal', lat: 41.1579, lng: -8.6291, radiusKm: 10 },
+    ];
+    const visitRows = [
+      { date: '2025-01-01', city: 'Portola Valley', state: 'California', country: 'United States of America' },
+    ];
+    const visited = matchCityVisits(list, visitRows, [], new Map());
+    assert.ok(!visited.has('Porto'));
+  });
+
+  it('does NOT match "Jerusalem" via "Salem" (not a prefix)', () => {
+    const list = [
+      { name: 'Jerusalem', country: 'Israel', lat: 31.7683, lng: 35.2137, radiusKm: 10 },
+    ];
+    const visitRows = [
+      { date: '2025-01-01', city: 'Salem', state: 'Oregon', country: 'United States of America' },
+    ];
+    const visited = matchCityVisits(list, visitRows, [], new Map());
+    assert.ok(!visited.has('Jerusalem'));
+  });
+
+  it('disambiguates by state: Carlsbad CA does NOT match Carlsbad NM', () => {
+    const list = [
+      { name: 'Carlsbad', state: 'New Mexico', country: 'United States of America', lat: 32.42, lng: -104.23, radiusKm: 10 },
+    ];
+    const visitRows = [
+      { date: '2025-01-01', city: 'Carlsbad', state: 'California', country: 'United States of America' },
+    ];
+    const visited = matchCityVisits(list, visitRows, [], new Map());
+    assert.ok(!visited.has('Carlsbad'), 'Carlsbad CA should not match Carlsbad NM');
+  });
+
+  it('disambiguates by state: Austin TX matches when row has state Texas', () => {
+    const list = [
+      { name: 'Austin', state: 'Texas', country: 'United States of America', lat: 30.27, lng: -97.74, radiusKm: 12 },
+    ];
+    const visitRows = [
+      { date: '2025-01-01', city: 'Austin', state: 'Texas', country: 'United States of America' },
+    ];
+    const visited = matchCityVisits(list, visitRows, [], new Map());
+    assert.ok(visited.has('Austin'));
+  });
+
+  it('does NOT match Virginia to West Virginia (exact state match)', () => {
+    const list = [
+      { name: 'Richmond', state: 'Virginia', country: 'United States of America', lat: 37.54, lng: -77.44, radiusKm: 10 },
+    ];
+    const visitRows = [
+      { date: '2025-01-01', city: 'Richmond', state: 'West Virginia', country: 'United States of America' },
+    ];
+    const visited = matchCityVisits(list, visitRows, [], new Map());
+    assert.ok(!visited.has('Richmond'), 'Richmond WV should not match Richmond VA');
+  });
+
+  it('matches city without state/country data (fallback)', () => {
+    const list = [
+      { name: 'Timbuktu', lat: 16.77, lng: -3.01, radiusKm: 8 },
+    ];
+    const visitRows = [
+      { date: '2025-01-01', city: 'Timbuktu', state: '', country: '' },
+    ];
+    const visited = matchCityVisits(list, visitRows, [], new Map());
+    assert.ok(visited.has('Timbuktu'));
+  });
 });

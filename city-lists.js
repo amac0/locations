@@ -20,7 +20,7 @@ export function haversineKm(lat1, lng1, lat2, lng2) {
  * @param {Array} cityList - array of city objects with name, lat, lng, radiusKm
  * @param {Array} visitRows - raw visit rows from CSV (have city field)
  * @param {Array} coords - lat/lng coordinates from Timeline.json
- * @param {Map} countryData - country visit map (unused but kept for API compat)
+ * @param {Map} countryData - country visit map (reserved for future use)
  * @returns {Set<string>} set of visited city names
  */
 export function matchCityVisits(cityList, visitRows, coords, countryData) {
@@ -52,16 +52,16 @@ export function matchCityVisits(cityList, visitRows, coords, countryData) {
       const nameMatch = row.city === cityLower
         || row.city.startsWith(cityLower + ' ')
         || cityLower.startsWith(row.city + ' ');
-      if (!nameMatch) continue;
+       if (!nameMatch) continue;
 
       /* Check location context to avoid same-name-different-place.
-         If the list city has a state, require state match.
-         Otherwise fall back to country match. */
+         If the list city has a state, require exact state match.
+         Otherwise fall back to exact country match. */
       let locationMatch = false;
       if (cityState) {
-        locationMatch = row.state.includes(cityState);
+        locationMatch = row.state === cityState;
       } else if (cityCountry) {
-        locationMatch = row.country.includes(cityCountry);
+        locationMatch = row.country === cityCountry;
       } else {
         locationMatch = true;
       }
@@ -365,7 +365,7 @@ export const CITY_LISTS = {
 
   'capitals': {
     name: 'World Country Capitals',
-    source: 'UN Member States',
+    source: 'Sovereign states and select territories',
     cities: [
       {name: 'Kabul', country: 'Afghanistan', lat: 34.5289, lng: 69.1725, radiusKm: 10},
       {name: 'Tirana', country: 'Albania', lat: 41.3275, lng: 19.8187, radiusKm: 8},
@@ -388,7 +388,7 @@ export const CITY_LISTS = {
       {name: 'Bandar Seri Begawan', country: 'Brunei', lat: 4.9031, lng: 114.9398, radiusKm: 8},
       {name: 'Sofia', country: 'Bulgaria', lat: 42.6977, lng: 23.3219, radiusKm: 10},
       {name: 'Naypyidaw', country: 'Myanmar', lat: 19.745, lng: 96.1297, radiusKm: 8},
-      {name: 'Bujumbura', country: 'Burundi', lat: -3.3822, lng: 29.3644, radiusKm: 8},
+      {name: 'Gitega', country: 'Burundi', lat: -3.4264, lng: 29.9246, radiusKm: 8},
       {name: 'Minsk', country: 'Belarus', lat: 53.9045, lng: 27.5615, radiusKm: 10},
       {name: 'Phnom Penh', country: 'Cambodia', lat: 11.5564, lng: 104.9282, radiusKm: 10},
       {name: 'Yaounde', country: 'Cameroon', lat: 3.848, lng: 11.5021, radiusKm: 8},
