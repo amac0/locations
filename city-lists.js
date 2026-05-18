@@ -28,10 +28,9 @@ export function cityKey(city) {
  * @param {Array} cityList - array of city objects with name, lat, lng, radiusKm
  * @param {Array} visitRows - raw visit rows from CSV (have city field)
  * @param {Array} coords - lat/lng coordinates from Timeline.json
- * @param {Map} countryData - country visit map (reserved for future use)
  * @returns {Set<string>} set of visited city keys (name|state|country via cityKey())
  */
-export function matchCityVisits(cityList, visitRows, coords, countryData) {
+export function matchCityVisits(cityList, visitRows, coords) {
   const visitedCities = new Set();
 
   /* Build list of {city, country, state} from visit rows for matching */
@@ -542,7 +541,7 @@ export const CITY_LISTS = {
       {name: 'Cairo', country: 'Egypt', lat: 30.0444, lng: 31.2357, radiusKm: 15},
       {name: 'London', country: 'United Kingdom', lat: 51.5074, lng: -0.1278, radiusKm: 15},
       {name: 'Dodoma', country: 'Tanzania', lat: -6.163, lng: 35.7516, radiusKm: 8},
-      {name: 'Washington D.C.', country: 'United States of America', lat: 38.9072, lng: -77.0369, radiusKm: 15},
+      {name: 'Washington', country: 'United States of America', lat: 38.9072, lng: -77.0369, radiusKm: 15},
       {name: 'Ouagadougou', country: 'Burkina Faso', lat: 12.3714, lng: -1.5197, radiusKm: 8},
       {name: 'Montevideo', country: 'Uruguay', lat: -34.9011, lng: -56.1645, radiusKm: 8},
       {name: 'Tashkent', country: 'Uzbekistan', lat: 41.2995, lng: 69.2401, radiusKm: 10},

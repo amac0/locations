@@ -113,7 +113,7 @@ describe('matchCityVisits', () => {
       { date: '2025-01-01', city: 'London', state: '', country: 'United Kingdom' },
     ];
     const coords = [];
-    const visited = matchCityVisits(sampleList, visitRows, coords, new Map());
+    const visited = matchCityVisits(sampleList, visitRows, coords);
     assert.ok(visited.has(cityKey(london)));
   });
 
@@ -122,7 +122,7 @@ describe('matchCityVisits', () => {
     const coords = [
       { lat: 41.90, lng: 12.50, time: '2025-03-01T00:00:00Z' },
     ];
-    const visited = matchCityVisits(sampleList, visitRows, coords, new Map());
+    const visited = matchCityVisits(sampleList, visitRows, coords);
     assert.ok(visited.has(cityKey(rome)), 'Should match Rome by proximity');
     assert.ok(!visited.has(cityKey(paris)), 'Should not match Paris');
   });
@@ -131,7 +131,7 @@ describe('matchCityVisits', () => {
     const coords = [
       { lat: 52.52, lng: 13.405, time: '2025-01-01T00:00:00Z' },
     ];
-    const visited = matchCityVisits(sampleList, [], coords, new Map());
+    const visited = matchCityVisits(sampleList, [], coords);
     assert.strictEqual(visited.size, 0, 'Berlin coords should not match any list city');
   });
 
@@ -142,14 +142,14 @@ describe('matchCityVisits', () => {
     const coords = [
       { lat: 41.90, lng: 12.50, time: '2025-03-01T00:00:00Z' },
     ];
-    const visited = matchCityVisits(sampleList, visitRows, coords, new Map());
+    const visited = matchCityVisits(sampleList, visitRows, coords);
     assert.strictEqual(visited.size, 2);
     assert.ok(visited.has(cityKey(london)));
     assert.ok(visited.has(cityKey(rome)));
   });
 
   it('handles empty inputs', () => {
-    const visited = matchCityVisits(sampleList, [], [], new Map());
+    const visited = matchCityVisits(sampleList, [], []);
     assert.strictEqual(visited.size, 0);
   });
 
@@ -160,7 +160,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'New York', state: 'New York', country: 'United States of America' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(visited.has(cityKey(list[0])));
   });
 
@@ -171,7 +171,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'Portola Valley', state: 'California', country: 'United States of America' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(!visited.has(cityKey(list[0])));
   });
 
@@ -182,7 +182,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'Salem', state: 'Oregon', country: 'United States of America' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(!visited.has(cityKey(list[0])));
   });
 
@@ -193,7 +193,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'Carlsbad', state: 'California', country: 'United States of America' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(!visited.has(cityKey(list[0])), 'Carlsbad CA should not match Carlsbad NM');
   });
 
@@ -204,7 +204,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'Austin', state: 'Texas', country: 'United States of America' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(visited.has(cityKey(list[0])));
   });
 
@@ -215,7 +215,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'Richmond', state: 'West Virginia', country: 'United States of America' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(!visited.has(cityKey(list[0])), 'Richmond WV should not match Richmond VA');
   });
 
@@ -226,7 +226,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'Victoria', state: 'British Columbia', country: 'Canada' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(!visited.has(cityKey(list[0])), 'Victoria Seychelles should not match Victoria BC');
   });
 
@@ -238,7 +238,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'Cuenca', state: '', country: 'Spain' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(visited.has(cityKey(list[0])), 'Cuenca Spain should match');
     assert.ok(!visited.has(cityKey(list[1])), 'Cuenca Ecuador should NOT match');
   });
@@ -251,7 +251,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'Portland', state: 'Oregon', country: 'United States of America' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(visited.has(cityKey(list[0])), 'Portland OR should match');
     assert.ok(!visited.has(cityKey(list[1])), 'Portland ME should NOT match');
   });
@@ -263,7 +263,7 @@ describe('matchCityVisits', () => {
     const visitRows = [
       { date: '2025-01-01', city: 'Timbuktu', state: '', country: '' },
     ];
-    const visited = matchCityVisits(list, visitRows, [], new Map());
+    const visited = matchCityVisits(list, visitRows, []);
     assert.ok(visited.has(cityKey(list[0])));
   });
 });

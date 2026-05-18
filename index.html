@@ -703,6 +703,7 @@
         /* Merge with existing data from previous uploads */
         countryData = mergeCountryMaps(countryData, newData);
         allTimelineCoords = allTimelineCoords.concat(allCoords);
+        cityDataVersion++;
 
         /* Build state/province data from Timeline coords */
         if (allCoords.length > 0) {
@@ -868,6 +869,24 @@
       return activeCityListType;
     }
 
+    /* Cache city visit results — only recompute when data changes */
+    let cityVisitCache = {};
+    let cityVisitCacheVersion = 0;
+    let cityDataVersion = 0;
+
+    function getCachedCityVisits(listKey, listData) {
+      if (cityVisitCache._version !== cityDataVersion
+        || !cityVisitCache[listKey]) {
+        cityVisitCache = { _version: cityDataVersion };
+      }
+      if (!cityVisitCache[listKey]) {
+        cityVisitCache[listKey] = matchCityVisits(
+          listData.cities, visitRows, allTimelineCoords
+        );
+      }
+      return cityVisitCache[listKey];
+    }
+
     function renderCityChecklist() {
       const section = document.getElementById('city-section');
       if (countryData.size === 0 && stateData.size === 0) {
@@ -887,9 +906,7 @@
 
       const listKey = getCityListKey();
       const listData = CITY_LISTS[listKey];
-      const visitedCities = matchCityVisits(
-        listData.cities, visitRows, allTimelineCoords, countryData
-      );
+      const visitedCities = getCachedCityVisits(listKey, listData);
 
       const total = listData.cities.length;
       const visited = visitedCities.size;
@@ -897,9 +914,8 @@
 
       /* Progress bar */
       document.getElementById('city-progress-fill').style.width = pct + '%';
-      document.getElementById('city-progress-text').innerHTML =
-        `<strong>${visited}</strong> of <strong>${total}</strong> `
-        + `${listData.name} visited (${pct}%)`;
+      const progressText = document.getElementById('city-progress-text');
+      progressText.textContent = `${visited} of ${total} ${listData.name} visited (${pct}%)`;
 
       /* City grid */
       const grid = document.getElementById('city-grid');
