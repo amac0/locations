@@ -530,7 +530,7 @@
     // ABOUTME: Handles file upload, data processing, and D3 map rendering.
 
     import { parseLatLng, extractCoordinates, buildCountryMap, lookupCountry, COUNTRY_NAMES, parseCsvToCountryMap, mergeCountryMaps, buildStateMap, parseCsvToStateMap, extractCsvRows, lookupState, normalizeCountryName } from './locations.js';
-    import { CITY_LISTS, matchCityVisits, haversineKm } from './city-lists.js';
+    import { CITY_LISTS, matchCityVisits, cityKey } from './city-lists.js';
 
     /* ==================== STATE ==================== */
     let countryData = new Map(); // Map<string, {firstVisit, lastVisit, visitCount}>
@@ -907,14 +907,14 @@
 
       /* Show visited first, then unvisited */
       const sorted = [...listData.cities].sort((a, b) => {
-        const aV = visitedCities.has(a.name) ? 0 : 1;
-        const bV = visitedCities.has(b.name) ? 0 : 1;
+        const aV = visitedCities.has(cityKey(a)) ? 0 : 1;
+        const bV = visitedCities.has(cityKey(b)) ? 0 : 1;
         if (aV !== bV) return aV - bV;
         return a.name.localeCompare(b.name);
       });
 
       for (const city of sorted) {
-        const isVisited = visitedCities.has(city.name);
+        const isVisited = visitedCities.has(cityKey(city));
         const card = document.createElement('div');
         card.className = 'city-card' + (isVisited ? ' visited' : '');
 

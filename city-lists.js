@@ -15,6 +15,13 @@ export function haversineKm(lat1, lng1, lat2, lng2) {
 }
 
 /**
+ * Create a unique key for a city to handle duplicate names (e.g., Cuenca Spain vs Ecuador).
+ */
+export function cityKey(city) {
+  return city.name + '|' + (city.country || '');
+}
+
+/**
  * Check which cities from a list the user has visited.
  * Uses both CSV city name matching and coordinate proximity from Timeline data.
  * @param {Array} cityList - array of city objects with name, lat, lng, radiusKm
@@ -52,7 +59,7 @@ export function matchCityVisits(cityList, visitRows, coords, countryData) {
       const nameMatch = row.city === cityLower
         || row.city.startsWith(cityLower + ' ')
         || cityLower.startsWith(row.city + ' ');
-       if (!nameMatch) continue;
+      if (!nameMatch) continue;
 
       /* Check location context to avoid same-name-different-place.
          If the list city has a state, require exact state match.
@@ -66,7 +73,7 @@ export function matchCityVisits(cityList, visitRows, coords, countryData) {
         locationMatch = true;
       }
       if (locationMatch) {
-        visitedCities.add(city.name);
+        visitedCities.add(cityKey(city));
         nameMatched = true;
         break;
       }
@@ -78,7 +85,7 @@ export function matchCityVisits(cityList, visitRows, coords, countryData) {
       for (const coord of coords) {
         const dist = haversineKm(coord.lat, coord.lng, city.lat, city.lng);
         if (dist <= city.radiusKm) {
-          visitedCities.add(city.name);
+          visitedCities.add(cityKey(city));
           break;
         }
       }
