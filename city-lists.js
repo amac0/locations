@@ -66,7 +66,8 @@ export function matchCityVisits(cityList, visitRows, coords) {
          Otherwise fall back to exact country match. */
       let locationMatch = false;
       if (cityState) {
-        locationMatch = row.state === cityState;
+        locationMatch = row.state === cityState
+          && (!cityCountry || row.country === cityCountry);
       } else if (cityCountry) {
         locationMatch = row.country === cityCountry;
       } else {
@@ -80,9 +81,14 @@ export function matchCityVisits(cityList, visitRows, coords) {
     }
     if (nameMatched) continue;
 
-    /* Match 2: coordinate proximity from Timeline data */
+    /* Match 2: coordinate proximity from Timeline data.
+       Pre-filter by bounding box (~1° lat ≈ 111km) to avoid expensive
+       haversine on every coord. */
     if (city.lat != null && city.lng != null && city.radiusKm) {
+      const degThreshold = city.radiusKm / 111 + 0.5;
       for (const coord of coords) {
+        if (Math.abs(coord.lat - city.lat) > degThreshold) continue;
+        if (Math.abs(coord.lng - city.lng) > degThreshold) continue;
         const dist = haversineKm(coord.lat, coord.lng, city.lat, city.lng);
         if (dist <= city.radiusKm) {
           visitedCities.add(cityKey(city));

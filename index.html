@@ -1317,6 +1317,8 @@
         'Or click to select files (you can upload both to combine them)';
       document.getElementById('reset-data-btn').classList.add('hidden');
       document.getElementById('city-section').classList.add('hidden');
+      cityDataVersion++;
+      cityVisitCache = {};
       activeCityListType = 'top50';
       cityListBtns.forEach(id => document.getElementById(id).classList.remove('active'));
       document.getElementById('list-top50').classList.add('active');
