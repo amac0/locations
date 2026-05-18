@@ -871,12 +871,10 @@
 
     /* Cache city visit results — only recompute when data changes */
     let cityVisitCache = {};
-    let cityVisitCacheVersion = 0;
     let cityDataVersion = 0;
 
     function getCachedCityVisits(listKey, listData) {
-      if (cityVisitCache._version !== cityDataVersion
-        || !cityVisitCache[listKey]) {
+      if (cityVisitCache._version !== cityDataVersion) {
         cityVisitCache = { _version: cityDataVersion };
       }
       if (!cityVisitCache[listKey]) {
